@@ -1,41 +1,91 @@
-# Market-Connect-API
-the api built for market-connect
+# MarketConnect API / Flask Backend
 
-## environment settings:
-please make sure you set up a new environment for this project, so it won't be mixed up with your default system environment.
-to setup the environment, please follow the instructions in [Anaconda set up][Anaconda_set_up_link].
+This repo now contains the Flask backend for MarketConnect/Expoflow. It includes
+both browser-facing web pages and JSON API routes, so the server can be deployed
+as one self-contained Flask application.
 
-The following instructions of this README will assume you have already installed the requirements.
+The Flask backend was rewritten from the earlier Django monolith prototype in
+`smart_market.zip`; the previous FastAPI implementation remains available in Git
+history before this migration branch.
 
-[Anaconda_set_up_link]: ./instructions/Anaconda_setup.md
+It preserves the prototype's main flows:
 
-## test the API online:
-1. go to the link [market-coonnect-api][market-connect-api_link]. if you don't see the commands, you might need to reload the page after a minute.
+- landlord and tenant registration/login
+- landlord stall publishing
+- hourly slot pricing
+- tenant stall search
+- multi-slot booking with one QR code
+- cash/card payment state
+- booking history
+- two-way reviews and reputation updates
 
-2. you can now test out all the API routes. 
-    for example: you want to test the function `/test-stalls`, simply find the function on the page, click it, then click "try it out", then click "execute".
-    you should see the results below the "execute" button.
+## Run Locally
 
-[market-connect-api_link]:https://market-connect-api-o4hq.onrender.com/
+Recommended Conda env name: `Market_Connection`.
 
-## test the API locally:
-1.  make sure you are in the same directory as `main.py` (which should be `Market-Connect`) and run：
-    `uvicorn main:app`
-    this command will start a local server on your device,
-    you should see a message that says "Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)"
+If the env already exists:
 
-2.  go to any web browser, enter the link [127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+```bash
+conda activate Market_Connection
+pip install -r requirements.txt
+flask --app app init-db
+flask --app app seed-demo
+flask --app app run
+```
 
-3.  you can now test out all the API routes. 
-    for example: you want to test the function `/test-stalls`, simply find the function on the page, click it, then click "try it out", then click "execute".
-    you should see the results below the "execute" button.
+If the env needs to be recreated:
 
-## structure of the database:
-please read the instruction [Tables.md][Tables_link]
+```bash
+conda env create -f environment.yml
+conda activate Market_Connection
+flask --app app init-db
+flask --app app seed-demo
+flask --app app run
+```
 
-[Tables_link]: ./instructions/Tables.md
+Open `http://127.0.0.1:5000`.
 
-## workflow:
-if you want to make contribution to this project, please follow the [workflow][workflow_link]
+Alternative virtualenv setup:
 
-[workflow_link]: ./instructions/Workflow.md
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+flask --app app init-db
+flask --app app seed-demo
+flask --app app run
+```
+
+Demo accounts after `seed-demo`:
+
+- Tenant: `tenant1` / `tenant1_password`
+- Landlord: `landlord1` / `landlord1_password`
+
+## Structure
+
+- `app.py`: thin compatibility entrypoint for `flask --app app ...`.
+- `models.py`: compatibility re-export for older imports.
+- `market_connect/`: application package.
+- `market_connect/api/v1/`: JSON API routes under `/api/v1`.
+- `market_connect/web/`: browser page routes for landlords and tenants.
+- `market_connect/services/`: shared booking, payment, review, and seed logic.
+- `market_connect/models.py`: SQLAlchemy models for users, stalls, slots, bookings, prices, and reviews.
+- `templates/`: converted Jinja templates from the Django prototype.
+- `tests/`: smoke tests for the booking/payment flow.
+
+## API Routes
+
+- `GET /api/v1/health`: service health check.
+- `GET /api/v1/stalls`: list stalls with available slots.
+- `GET /api/v1/stalls/<stall_id>/slots`: list available slots for one stall.
+- `POST /api/v1/bookings`: create a booking from JSON `user_id` and `slot_ids`.
+- `GET /api/v1/bookings/<qr_code>`: fetch one QR-code booking group.
+- `POST /api/v1/payments`: update payment state from JSON `qr_code` and `payment_method`.
+
+## Notes
+
+- This is still a prototype, not production authentication or payment code.
+- SQLite is used by default at `instance/market_connect.db`.
+- `Booking.slot_id` is unique to prevent double-booking the same slot.
+- Web routes and `/api/v1` routes intentionally live in the same backend repo so
+  the team has one server to run, test, review, and deploy.

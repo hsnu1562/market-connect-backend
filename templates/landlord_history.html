@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>S-Market | 歷史發佈與評價</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --bg-paper: #fcfaf2; /* 💡 靈魂：復古老報紙暖白再生紙色 */
+            --text-charcoal: #161616; 
+            --deep-pink: #c96f8a; /* 莫蘭迪復古粉 */
+            --border-line: #161616;
+            --vacancy-accent: #4a7c59; /* 古董森林綠，代表正在架上的完整空檔 */
+        }
+        body { font-family: 'Noto Sans TC', sans-serif; background: var(--bg-paper); margin: 0; color: var(--text-charcoal); }
+        
+        /* 💡 頂部導航列全面改為老報紙黑底白字排版 */
+        .navbar {
+            background: var(--text-charcoal); padding: 15px 50px; display: flex;
+            justify-content: space-between; align-items: center; color: var(--bg-paper);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 1000;
+        }
+        .navbar .logo { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 900; font-style: italic; color: var(--bg-paper); text-decoration: none; }
+        .user-info span b { color: #f3c1cf; margin: 0 5px; }
+
+        .container { max-width: 1200px; margin: 40px auto; padding: 0 20px; }
+        
+        /* Section 區塊全面直角化、去除 AI 糖果色與浮誇投影 */
+        .section-box { background: white; padding: 40px; border: 2px solid var(--border-line); border-radius: 0px; margin-bottom: 40px; }
+        
+        h2 { font-family: 'Playfair Display', 'Noto Sans TC', serif; margin-top: 0; color: var(--text-charcoal); font-weight: 700; border-bottom: 2px solid var(--border-line); padding-bottom: 15px; }
+        
+        /* 剛硬俐落的直角網格表格 */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; border: 2px solid var(--border-line); border-radius: 0px; overflow: hidden; }
+        th { background: var(--text-charcoal); color: var(--bg-paper); padding: 15px; text-align: left; white-space: nowrap; font-weight: 700; }
+        td { padding: 15px; vertical-align: middle; border-bottom: 1px solid #e5e5d8; }
+
+        /* 評價卡片線條化排版 */
+        .review-card { background: #fffbfd; border: 1px solid var(--border-line); border-left: 6px solid var(--deep-pink); border-radius: 0px; padding: 25px; margin-bottom: 20px; }
+        .review-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; color: var(--text-charcoal); }
+        .review-stars { color: #ffb703; font-size: 1.1rem; }
+        .review-comment { color: #555; font-size: 0.95rem; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="/landlord/hub/{{ user.id }}/" class="logo">✨ SMARKET</a>
+    <div class="user-info">
+        <span>👤 帳號: <b>{{ user.username }}</b></span>
+        <span>🏷️ 角色: <b>{{ user.role }}</b></span>
+        <span>⭐ 評分: <b>{{ user.reputation_score }} ★</b></span>
+    </div>
+</nav>
+
+<div class="container">
+    
+    <div class="section-box" style="border-color: var(--vacancy-accent);">
+        <h2 style="color: var(--vacancy-accent); border-bottom-color: var(--vacancy-accent);">已發佈・架上等待預約中的攤位</h2>
+        {% if my_active_vacancies %}
+            <table>
+                <thead>
+                    <tr>
+                        <th style="background: var(--vacancy-accent);">🏪 攤位名稱</th>
+                        <th style="background: var(--vacancy-accent);">📅 發佈出租日期</th>
+                        <th style="background: var(--vacancy-accent);">⏰ 完整開放時段</th>
+                        <th style="background: var(--vacancy-accent);">💰 該時段總價值</th>
+                        <th style="background: var(--vacancy-accent);">⚖️ 目前即時狀態</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v in my_active_vacancies %}
+                        <tr style="background: #ffffff;">
+                            <td style="font-weight: bold;">{{ v.stall_name }}</td>
+                            <td style="white-space: nowrap; font-weight: 600;">{{ v.date }}</td>
+                            <td style="font-size: 1rem; font-weight: bold; color: var(--text-charcoal);">{{ v.time_zone }}</td>
+                            <td style="color: var(--vacancy-accent); font-weight: bold; white-space: nowrap; font-size: 1.05rem;">${{ v.price }}</td>
+                            <td style="white-space: nowrap;">
+                                <span style="color: var(--vacancy-accent); font-weight: bold; background: rgba(74, 124, 89, 0.08); padding: 4px 10px; border: 1px solid var(--vacancy-accent);">開放</span>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color: #666; text-align: center; padding: 20px; font-style: italic;">📋 目前您名下所有上架的時段都已經被約滿，或是您尚未前往「出租新攤位」發佈任何檔期喔！</p>
+        {% endif %}
+    </div>
+    
+
+    <div class="section-box">
+        <h2>收到租客預約明細</h2>
+        {% if rented_slots %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>🏪 攤位名稱</th>
+                        <th>👤 租客姓名</th>
+                        <th>📅 租借日期</th>
+                        <th>⏰ 訂單時段</th>
+                        <th>💰 訂單總收益</th>
+                        <th>⚖️ 交易狀態 </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in rented_slots %}
+                        <tr style="background: #ffffff;">
+                            <td style="font-weight: bold;">{{ r.stall_name }}</td>
+                            <td>{{ r.tenant_name }} <br><small style="color: #666;">📱 {{ r.tenant_phone|default("無電話", true) }}</small></td>
+                            <td style="white-space: nowrap; font-weight: 600;">{{ r.date }}</td>
+                            
+                            <td style="font-size: 1rem; font-weight: bold; color: var(--text-charcoal);">{{ r.time }}</td>
+                            
+                            <td style="color: var(--deep-pink); font-weight: bold; white-space: nowrap; font-size: 1.05rem;">${{ r.price }}</td>
+                            
+                            <td style="white-space: nowrap;">
+                                {% if r.status == 'Paid' %}
+                                    <span style="color: #2e7d32; font-weight: bold; display: inline-block; margin-right: 10px;">已付款</span>
+                                    {% if r.is_reviewed %}
+                                        <span style="color: #777; font-size: 0.9rem; display: inline-block; vertical-align: middle;">✅ 已評價訂單</span>
+                                    {% else %}
+                                        <button type="button" onclick="openLandlordReviewModal('{{ r.booking_id }}', '{{ r.tenant_name|escapejs }}')" style="background: var(--text-charcoal); color: var(--bg-paper); border: 1px solid var(--text-charcoal); padding: 6px 14px; border-radius: 0px; font-size: 0.85rem; font-weight: bold; cursor: pointer; vertical-align: middle; transition: 0.2s;" onmouseover="this.style.background='var(--deep-pink)', this.style.borderColor='var(--deep-pink)'" onmouseout="this.style.background='var(--text-charcoal)', this.style.borderColor='var(--text-charcoal)'">⭐ 評分租客</button>
+                                    {% endif %}
+                           
+                                {% else %}
+                                    <span style="color: #c62828; font-weight: bold;">未付款</span>
+                                    <form action="/confirm_payment/" method="POST" style="display:inline;">
+                                        <input type="hidden" name="booking_id" value="{{ r.booking_id }}">
+                                        <button type="submit" style="padding: 4px 8px; font-size: 0.8rem; cursor: pointer;">確認收款</button>
+                                    </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="color: #777; text-align: center; padding: 20px; font-style: italic;">📭 目前還沒有收到任何來自租客的預約下單紀錄喔！</p>
+        {% endif %}
+    </div>
+
+    <div class="section-box">
+        <h2>租客給我的評價回饋</h2>
+        {% if my_reviews %}
+            {% for review in my_reviews %}
+                <div class="review-card">
+                    <div class="review-header">
+                        <span>🛍️ 租客：{{ review.reviewer.first_name }} {{ review.reviewer.last_name }} ({{ review.reviewer.username }})</span>
+                        <span class="review-stars">
+                            {% if review.rating == 5 %}⭐⭐⭐⭐⭐{% elif review.rating == 4 %}⭐⭐⭐⭐{% elif review.rating == 3 %}⭐⭐⭐{% elif review.rating == 2 %}⭐⭐{% else %}⭐{% endif %}
+                            {{ review.rating }} 星
+                        </span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">
+                        🏪 評價攤位：<b>{{ review.booking.slot.stall.loc_name }}</b> | 📅 評價時間：{{ review.created_at|date("Y-m-d H:i") }}
+                    </div>
+                    <div class="review-comment">
+                        💬 評語：{% if review.comment %}{{ review.comment }}{% else %}<span style="color: #999; font-style: italic;">（該租客僅評分，未留下文字評語）</span>{% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p style="color: #777; text-align: center; padding: 20px; font-style: italic;">🌟 您目前尚未收到任何來自租客的評價。</p>
+        {% endif %}
+    </div>
+</div>
+
+<div id="landlordReviewModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 9999; justify-content: center; align-items: center; backdrop-filter: blur(2px);">
+    <div style="background: #ffffff; padding: 35px; border-radius: 0px; border: 2px solid var(--border-line); width: 90%; max-width: 400px; color: #161616; box-shadow: 0 15px 40px rgba(0,0,0,0.15);">
+        <h3 style="margin-top: 0; color: var(--text-charcoal); font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 700; border-bottom: 1px solid #ccc; padding-bottom: 10px;">⭐ 評價租客：<span id="modal-tenant-name" style="font-style: italic;"></span></h3>
+        <form action="/submit_review/" method="POST">
+            <input type="hidden" name="booking_id" id="modal-landlord-booking-id">
+            <div style="margin-bottom: 18px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #444;">給予租客信譽評分：</label>
+                <select name="rating" style="width: 100%; padding: 12px; background: #ffffff; border: 1px solid var(--border-line); border-radius: 0px; font-size: 1rem; outline: none; font-family: inherit;">
+                    <option value="5">⭐⭐⭐⭐⭐ 5 星 - 非常棒</option>
+                    <option value="4">⭐⭐⭐⭐ 4 星 - 很好</option>
+                    <option value="3">⭐⭐⭐ 3 星 - 普通</option>
+                    <option value="2">⭐⭐ 2 星 - 有待改善</option>
+                    <option value="1">⭐ 1 星 - 極差</option>
+                </select>
+            </div>
+            <div style="margin-bottom: 22px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #444;">評語備忘錄：</label>
+                <textarea name="comment" rows="4" placeholder="填寫反饋..." style="width: 100%; padding: 12px; background: #ffffff; border: 1px solid var(--border-line); border-radius: 0px; resize: none; box-sizing: border-box; font-size: 0.95rem; outline: none; font-family: inherit;"></textarea>
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button type="button" onclick="closeLandlordReviewModal()" style="padding: 10px 20px; background: #ffffff; border: 1px solid var(--border-line); border-radius: 0px; cursor: pointer; font-weight: bold; color: var(--text-charcoal);">取消</button>
+                <button type="submit" style="padding: 10px 24px; background: var(--text-charcoal); color: var(--bg-paper); border: none; border-radius: 0px; cursor: pointer; font-weight: bold; transition: 0.2s;" onmouseover="this.style.background='var(--deep-pink)'" onmouseout="this.style.background='var(--text-charcoal)'">送出評價</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openLandlordReviewModal(bookingId, tenantName) {
+    document.getElementById('modal-landlord-booking-id').value = bookingId;
+    document.getElementById('modal-tenant-name').innerText = tenantName;
+    document.getElementById('landlordReviewModal').style.display = 'flex';
+}
+function closeLandlordReviewModal() {
+    document.getElementById('landlordReviewModal').style.display = 'none';
+}
+</script>
+</body>
+</html>

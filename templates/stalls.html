@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>S-Market | 探索攤位</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <!-- 引入 Miranda 網站靈魂字體 -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-paper: #fcfaf2;
+            --text-charcoal: #161616;
+            --border-line: #161616;
+            --accent-green: #4a7c59;
+            --accent-pink: #c96f8a;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-paper);
+            color: var(--text-charcoal);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        /* 報紙風格導航列 */
+        .navbar {
+            background: var(--text-charcoal);
+            padding: 20px 50px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--bg-paper);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar .logo { 
+            font-family: 'Playfair Display', serif; 
+            font-size: 1.8rem; 
+            font-weight: 900; 
+            font-style: italic; 
+            color: var(--bg-paper); 
+            text-decoration: none; 
+        }
+
+        .user-info span b { color: #f3c1cf; margin: 0 5px; }
+
+        .nav-btn {
+            color: var(--bg-paper);
+            text-decoration: none;
+            font-weight: 700;
+            padding: 8px 16px;
+            border: 2px solid var(--bg-paper);
+            margin-left: 10px;
+            transition: all 0.2s;
+        }
+
+        .nav-btn:hover { background: var(--bg-paper); color: var(--text-charcoal); }
+
+        /* 標題區域 */
+        .header { text-align: center; padding: 60px 20px; }
+        .header h1 { 
+            font-family: 'Playfair Display', serif; 
+            font-size: 3rem; 
+            font-style: italic; 
+            margin-bottom: 20px; 
+        }
+
+        .filter-box input {
+            padding: 15px;
+            border: 2px solid var(--border-line);
+            background: white;
+            font-size: 1.1rem;
+            text-align: center;
+            width: 300px;
+            cursor: pointer;
+        }
+
+        /* 攤位卡片：報紙廣告版位風格 */
+        .stall-container {
+            max-width: 1000px;
+            margin: 40px auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+            gap: 30px;
+            padding: 0 20px 100px;
+        }
+
+        .stall-card {
+            background: white;
+            border: 2px solid var(--border-line);
+            padding: 30px;
+            display: none; /* JS 控制顯示 */
+        }
+
+        .stall-name { font-family: 'Playfair Display', serif; font-size: 1.8rem; margin: 0 0 10px; }
+        .stall-address { color: #555; margin-bottom: 20px; font-size: 0.9rem; }
+        
+        .time-block {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .booking-btn {
+            display: block;
+            background: var(--text-charcoal);
+            color: white;
+            text-align: center;
+            padding: 15px;
+            text-decoration: none;
+            font-weight: 700;
+            margin-top: 20px;
+        }
+        .booking-btn:hover { background: var(--accent-pink); }
+
+        .no-data { text-align: center; padding: 50px; font-style: italic; color: #888; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar" style="background: #161616; padding: 20px 50px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+    <!-- 根據 image_00d1fd.png 調整的商標樣式，保留跳轉租客大廳的功能 -->
+    <a href="/tenant/hub/{{ user_id }}/" class="logo" style="font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 700; font-style: italic; color: #ffffff; text-decoration: none;">
+        ✨ SMARKET
+    </a>
+
+    <!-- 只保留租客資訊欄，刪除右側所有按鈕 -->
+    <div class="user-info" style="display: flex; gap: 25px; align-items: center; color: #a3b1c2; font-size: 1rem; font-weight: 500;">
+        <span>👤 帳號: <b>{{ tenant_username }}</b></span>
+        <span>🏷️ 角色: <b>Tenant</b></span>
+        <span style="color: #ffb703;">⭐ 評分: <b>{{ tenant_reputation }} ★</b></span>
+    </div>
+</nav>
+
+    {% if not_logged_in %}
+        <div class="no-data"><h1>請先登入以探索市集空間</h1></div>
+    {% else %}
+        <div class="header">
+            <h1>探索您的下一個據點</h1>
+            <div class="filter-box">
+                <input type="text" id="main-datepicker" placeholder="📅 點選篩選日期">
+            </div>
+        </div>
+
+        <div id="no-data-msg" class="no-data">請在上方選擇日期開始搜尋攤位資訊</div>
+
+        <div class="stall-container" id="stall-list">
+            {% for stall in stalls %}
+                <div class="stall-card" data-stall-id="{{ stall.id }}" data-dates='[{% for s in stall.available_slots %}"{{ s.date|date("Y-m-d") }}"{% if not loop.last %},{% endif %}{% endfor %}]'>
+                    <h2 class="stall-name">{{ stall.loc_name }}</h2>
+                    <div class="stall-address">📍 {{ stall.city }}{{ stall.district }}{{ stall.road }}</div>
+                    <div id="availability-{{ stall.id }}"></div>
+                    <a href="/booking_page/{{ stall.id }}/{{ user_id }}/" class="booking-btn">預約此攤位</a>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script>
+        const allStallPrices = JSON.parse('{{ stalls_json|escapejs }}');
+        flatpickr("#main-datepicker", { minDate: "today", dateFormat: "Y-m-d", onChange: (sd, ds) => filterStalls(ds) });
+
+        function filterStalls(targetDate) {
+            // 1. 隱藏預設文字與搜尋結果
+            document.getElementById('no-data-msg').style.display = 'none';
+            const cards = document.querySelectorAll('.stall-card');
+            let foundAny = false;
+
+            cards.forEach(card => {
+                const dates = JSON.parse(card.getAttribute('data-dates'));
+                const stallId = card.dataset.stallId;
+                const box = document.getElementById('availability-' + stallId);
+                
+                if (dates.includes(targetDate)) {
+                    card.style.display = 'block';
+                    foundAny = true; // 標記有找到攤位
+                    
+                    const data = allStallPrices.find(s => s.id == stallId).slots.filter(s => s.date === targetDate);
+                    box.innerHTML = `<div style="font-weight:700; margin-bottom:10px; border-bottom:1px solid #ddd; padding-bottom:5px;">${targetDate} 的空檔：</div>` + 
+                        data.map(s => `<div class="time-block"><span>${s.time}:00 - ${s.time+1}:00</span><span style="font-weight:700;">$${s.price}</span></div>`).join('');
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+
+            // 2. 找不到攤位的優雅提示
+            const noDataMsg = document.getElementById('no-data-msg');
+            if (!foundAny) {
+                noDataMsg.innerHTML = `⚠️ 很抱歉，<b>${targetDate}</b> 當日已無可供預約的攤位，請試試其他日期。`;
+                noDataMsg.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>

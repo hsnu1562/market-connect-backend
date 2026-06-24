@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>S-Market | 攤位發佈成功</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --bg-paper: #fcfaf2; /* 💡 靈魂：高雅的復古再生紙米白色 */
+            --text-charcoal: #161616; /* 高級深炭黑 */
+            --border-line: #161616;
+            --landlord-accent: #c96f8a; /* 莫蘭迪復古粉 */
+        }
+        
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background: var(--bg-paper); 
+            margin: 0; 
+            height: 100vh; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: var(--text-charcoal);
+        }
+
+        /* 💡 核心優化 1：模擬歐美老報紙頭版「特別公告」的雙線直角框線，徹底洗刷 AI 套版感 */
+        .success-card {
+            background: white;
+            padding: 50px 45px;
+            border: 4px double var(--border-line); /* 💡 雙線邊框：極具印刷物復古厚實質感 */
+            border-radius: 0px; /* 堅守直角 */
+            box-shadow: none; /* 丟棄廉價的大陰影 */
+            text-align: center;
+            max-width: 520px;
+            width: 90%;
+            box-sizing: border-box;
+            animation: journalFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .success-icon {
+            font-size: 4.5rem;
+            margin-bottom: 15px;
+            display: inline-block;
+            filter: grayscale(0.2); /* 褪色感契合復古風 */
+        }
+
+        /* 印刷雕刻感大標題 */
+        h1 { 
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            margin: 0 0 15px 0; 
+            color: var(--text-charcoal); 
+            font-size: 2.2rem; 
+            font-weight: 900; 
+            font-style: italic; /* 古典斜體 */
+            letter-spacing: -1px;
+        }
+        
+        /* 內文描述 */
+        p { 
+            margin: 0 0 45px 0; 
+            color: #444; 
+            font-size: 1rem; 
+            font-weight: 600;
+            line-height: 1.6; 
+        }
+
+        .btn-group {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* 💡 核心優化 2：線條與幾何比例嚴謹的直角雜誌風按鈕系統 */
+        .btn {
+            padding: 15px 24px;
+            border-radius: 0px; /* 直角裁切 */
+            font-size: 1rem;
+            font-weight: bold;
+            text-decoration: none;
+            box-sizing: border-box;
+            transition: all 0.25s ease;
+            display: block;
+        }
+
+        /* 主按鈕（主要動作）：滿色深炭黑 ➔ 移入時反轉成優雅復古粉 */
+        .btn-primary {
+            background: var(--text-charcoal);
+            color: var(--bg-paper);
+            border: 2px solid var(--text-charcoal);
+            box-shadow: none;
+        }
+        .btn-primary:hover {
+            background: var(--landlord-accent);
+            border-color: var(--landlord-accent);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* 次按鈕（次要動作）：極簡鏤空黑線 ➔ 移入時反轉成滿色深炭黑 */
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-charcoal);
+            border: 2px solid var(--border-line);
+        }
+        .btn-secondary:hover {
+            background: var(--text-charcoal);
+            color: var(--bg-paper);
+            transform: translateY(-2px);
+        }
+
+        @keyframes journalFadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+<div class="success-card">
+    <span class="success-icon">🎉</span>
+    <h1>恭喜！新攤位上架成功</h1>
+    <p>您的市集攤位資訊、時段以及定價已經全部發佈完成，租客們現在隨時可以預約囉！</p>
+    
+    <div class="btn-group">
+    <a href="/landlord/history/{{ user_id }}/" class="btn btn-primary">
+        📊 查看我剛上架的攤位
+    </a>
+    
+    <a href="/landlord/hub/{{ user_id }}/" class="btn btn-secondary">
+        🏠 返回房東首頁
+    </a>
+</div>
+</div>
+
+</body>
+</html>

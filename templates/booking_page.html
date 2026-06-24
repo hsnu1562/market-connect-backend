@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>預約攤位 - {{ stall.loc_name }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --bg-paper: #fcfaf2; /* 復古再生紙色 */
+            --text-charcoal: #161616; 
+            --border-line: #161616;
+            --tenant-accent: #4a617c; /* 租客端古董灰藍 */
+        }
+        body { font-family: 'Noto Sans TC', sans-serif; background: var(--bg-paper); margin: 0; color: var(--text-charcoal); }
+
+        /* 💡 統一導航列：依據 image_00d1fd.png 的極簡配置 */
+        .navbar {
+            background: var(--text-charcoal); padding: 20px 50px; display: flex;
+            justify-content: space-between; align-items: center; color: var(--bg-paper);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 1000;
+        }
+        .navbar .logo { font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 700; font-style: italic; color: #ffffff; text-decoration: none; }
+        .user-info { display: flex; gap: 25px; align-items: center; color: #a3b1c2; font-size: 1rem; font-weight: 500; }
+
+        .container { max-width: 900px; margin: 60px auto; padding: 45px; border: 2px solid var(--border-line); background: white; }
+        
+        h2 { font-family: 'Playfair Display', serif; font-size: 2.5rem; margin-top: 0; font-style: italic; border-bottom: 3px solid var(--border-line); padding-bottom: 10px; }
+        h3 { font-family: 'Playfair Display', serif; font-size: 1.5rem; margin: 40px 0 20px; }
+
+        .stall-info { padding: 20px 0; border-bottom: 1px solid #ddd; margin-bottom: 30px; line-height: 1.8; }
+        .info-label { font-weight: 700; color: #555; display: inline-block; width: 100px; }
+
+        /* 復古直角表格 */
+        .slot-table { width: 100%; border-collapse: collapse; border: 2px solid var(--border-line); }
+        th { background: var(--text-charcoal); color: var(--bg-paper); padding: 15px; text-align: left; }
+        td { padding: 15px; border-bottom: 1px solid #eee; }
+
+        .booking-summary-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 30px; border: 2px solid var(--border-line); margin-top: 40px;
+        }
+
+        .submit-btn {
+            background: var(--text-charcoal); color: var(--bg-paper);
+            border: none; padding: 15px 30px; font-weight: 700; cursor: pointer;
+            transition: 0.3s;
+        }
+        .submit-btn:hover:not(:disabled) { background: var(--tenant-accent); }
+        .submit-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        .back-link { display: inline-block; margin-top: 20px; color: #333; text-decoration: underline; }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="/tenant/hub/{{ tenant.id }}/" class="logo">✨ SMARKET</a>
+        <div class="user-info">
+            <span>👤 帳號: <b>{{ tenant.username }}</b></span>
+            <span>🏷️ 角色: <b>Tenant</b></span>
+            <span style="color: #ffb703;">⭐ 評分: <b>{{ tenant.reputation_score }} ★</b></span>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h2>預約您的攤位</h2>
+        
+        <div class="stall-info">
+            <div><span class="info-label">攤位:</span><strong>{{ stall.loc_name }}</strong></div>
+            <div><span class="info-label">地址:</span>{{ stall.city }}{{ stall.district }}{{ stall.road }}{{ stall.address_detail }}</div>
+            <div><span class="info-label">租客:</span>{{ tenant.first_name }} {{ tenant.last_name }}</div>
+        </div>
+
+        <h3>🗓️ 選擇檔期</h3>
+        
+        {% if slots %}
+            <form action="/make_booking/" method="POST" id="booking-form">                <input type="hidden" name="user_id" value="{{ tenant.id }}">
+                <table class="slot-table">
+                    <thead>
+                        <tr>
+                            <th>選擇</th>
+                            <th>日期</th>
+                            <th>時段</th>
+                            <th>單價</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for slot in slots %}
+                        <tr>
+                            <td><input type="checkbox" name="slot_ids" value="{{ slot.id }}" data-price="{{ slot.price }}" class="slot-checkbox"></td>
+                            <td><strong>{{ slot.date }}</strong></td>
+                            <td>{{ slot.time }}:00 - {{ slot.time + 1 }}:00</td>
+                            <td>${{ slot.price }} /hr</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="booking-summary-bar">
+                    <div>
+                        <div style="font-size: 0.9rem; color: #666;">預估總額</div>
+                        <div id="total-price" style="font-size: 1.8rem; font-weight: 900;">$0</div>
+                    </div>
+                    <button type="submit" class="submit-btn" id="submit-btn" disabled>確認預約並付款</button>
+                </div>
+            </form>
+        {% else %}
+            <p>⚠️ 目前暫無可預約時段。</p>
+        {% endif %}
+        
+        <a href="/stalls/" class="back-link">← 返回攤位列表</a>
+    </div>
+
+<script>
+    const checkboxes = document.querySelectorAll('.slot-checkbox');
+    const totalPriceEl = document.getElementById('total-price');
+    const submitBtn = document.getElementById('submit-btn');
+
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', () => {
+            let total = 0;
+            checkboxes.forEach(c => { if(c.checked) total += parseInt(c.dataset.price); });
+            totalPriceEl.textContent = `$${total}`;
+            submitBtn.disabled = total === 0;
+        });
+    });
+</script>
+</body>
+</html>

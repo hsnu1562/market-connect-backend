@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SMARKET | 歡迎</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-paper: #fcfaf2; /* 💡 靈魂：高雅的復古再生紙米白色 */
+            --text-charcoal: #161616; /* 高級深炭黑 */
+            --border-line: #161616;
+            --landlord-accent: #c96f8a; /* 低飽和莫蘭迪粉 */
+            --tenant-accent: #4a7c59; /* 高級森林古董綠 */
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-paper); 
+            min-height: 100vh; margin: 0; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            overflow-x: hidden;
+        }
+
+        /* 💡 報紙頭版印刷質感的超巨大經典斜體標題 */
+        .welcome-text { 
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 5rem; 
+            font-weight: 900;
+            font-style: italic; 
+            color: var(--text-charcoal); 
+            margin-top: 40px; 
+            margin-bottom: 3.5rem;
+            letter-spacing: -1px;
+            text-align: center;
+            position: relative;
+            animation: journalFadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* 標題下方的報紙雙橫線裝飾 */
+        .welcome-text::after {
+            content: '';
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 3px;
+            background-color: var(--text-charcoal);
+        }
+
+        @media (max-width: 768px) {
+            .welcome-text { font-size: 2.8rem; }
+        }
+
+        /* 💡 實線線條裁切的極簡雜誌版面網格 */
+        .login-container {
+            display: flex; 
+            width: 90%; 
+            max-width: 1000px; 
+            height: 480px; 
+            background: transparent;
+            border: 2px solid var(--border-line);
+            box-sizing: border-box;
+            animation: journalFadeIn 1.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .role-side {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            justify-content: center; padding: 50px 40px;
+            background-color: transparent;
+            box-sizing: border-box;
+            transition: background-color 0.4s ease;
+        }
+
+        .landlord-side {
+            border-right: 2px solid var(--border-line);
+        }
+
+        /* 懸停時淡淡的紙張浸潤色塊回饋 */
+        .landlord-side:hover { background-color: rgba(201, 111, 138, 0.08); }
+        .tenant-side:hover { background-color: rgba(74, 124, 89, 0.08); }
+
+        .role-side h2 { 
+            font-family: 'Playfair Display', 'Noto Sans TC', serif; 
+            font-size: 1.8rem; 
+            font-weight: 700;
+            margin: 0 0 30px 0; 
+            color: var(--text-charcoal);
+        }
+
+        .icon { 
+            font-size: 3.5rem; 
+            margin-bottom: 10px;
+            filter: grayscale(0.2); 
+            transition: transform 0.3s ease;
+        }
+        .role-side:hover .icon {
+            transform: scale(1.1) rotate(3deg);
+        }
+
+        .btn-group { display: flex; flex-direction: column; gap: 18px; width: 80%; }
+        
+        /* 💡 俐落硬朗的直角純線條框線按鈕（拒絕 AI 藥丸圓角） */
+        .btn {
+            display: block;
+            padding: 14px; 
+            text-align: center; 
+            text-decoration: none;
+            font-weight: 700; 
+            font-size: 1rem;
+            letter-spacing: 1px;
+            box-sizing: border-box;
+            border: 2px solid var(--border-line);
+            border-radius: 0px; 
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .btn-landlord-login { background: var(--text-charcoal); color: var(--bg-paper); } 
+        .btn-landlord-login:hover { background: var(--landlord-accent); color: white; border-color: var(--landlord-accent); }
+        
+        .btn-landlord-reg { background: transparent; color: var(--text-charcoal); }
+        .btn-landlord-reg:hover { background: var(--text-charcoal); color: var(--bg-paper); }
+
+        .btn-tenant-login { background: var(--text-charcoal); color: var(--bg-paper); } 
+        .btn-tenant-login:hover { background: var(--tenant-accent); color: white; border-color: var(--tenant-accent); }
+        
+        .btn-tenant-reg { background: transparent; color: var(--text-charcoal); }
+        .btn-tenant-reg:hover { background: var(--text-charcoal); color: var(--bg-paper); }
+
+        @keyframes journalFadeIn {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <h1 class="welcome-text" data-text="✨ SMARKET ✨">✨ SMARKET ✨</h1>
+    
+    <div class="login-container">
+        <div class="role-side landlord-side">
+            <div class="icon">🏪</div>
+            <h2>我是攤主</h2>
+            <div class="btn-group">
+                <a href="/login/Landlord" class="btn btn-landlord-login">我要登入</a>
+                <a href="/register/Landlord" class="btn btn-landlord-reg">我要註冊</a>
+            </div>
+        </div>
+
+        <div class="role-side tenant-side">
+            <div class="icon">🛍️</div>
+            <h2>我是租客</h2>
+            <div class="btn-group">
+                <a href="/login/Tenant" class="btn btn-tenant-login">我要登入</a>
+                <a href="/register/Tenant" class="btn btn-tenant-reg">我要註冊</a>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

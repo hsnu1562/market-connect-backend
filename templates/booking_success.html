@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>S-Market | 預約確認單</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --bg-paper: #fcfaf2; 
+            --text-charcoal: #161616; 
+            --border-line: #161616;
+        }
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background-color: var(--bg-paper); 
+            margin: 0; color: var(--text-charcoal); 
+            display: flex; justify-content: center; align-items: center; min-height: 100vh; 
+        }
+
+        /* 💡 核心視覺：報刊式雙實線框 */
+        .success-container {
+            width: 90%; max-width: 500px;
+            background: white; 
+            border: 4px double var(--border-line); 
+            border-radius: 0px;
+            padding: 60px; 
+            text-align: center;
+        }
+
+        h2 { 
+            font-family: 'Playfair Display', serif; 
+            font-size: 2.5rem; 
+            font-weight: 900; 
+            font-style: italic; 
+            margin-bottom: 10px; 
+            letter-spacing: -1px;
+        }
+
+        .qrcode-card {
+            border: 2px solid var(--border-line);
+            padding: 20px; 
+            display: inline-block; 
+            margin: 30px 0;
+            background: #fff;
+        }
+
+        .booking-details-box {
+            border-top: 2px solid var(--border-line);
+            border-bottom: 2px solid var(--border-line);
+            padding: 25px 0; 
+            margin-bottom: 40px; 
+            text-align: left;
+        }
+
+        .details-row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 1.05rem; }
+        .label { font-weight: 700; color: #555; }
+
+        .btn-group { display: flex; flex-direction: column; gap: 12px; }
+        .action-btn {
+            padding: 16px; 
+            border: 2px solid var(--border-line);
+            font-weight: 700; 
+            text-decoration: none; 
+            display: block;
+            background: transparent; 
+            color: var(--text-charcoal); 
+            transition: all 0.3s;
+        }
+        .action-btn:hover { background: var(--text-charcoal); color: white; }
+    </style>
+</head>
+<body>
+
+    <div class="success-container">
+        <h2>預約確認單</h2>
+        <p style="font-weight: 600; margin-bottom: 30px;">您的預約已正式生效。</p>
+
+        <div class="qrcode-card">
+            <div id="qrcode-canvas"></div>
+            <div style="margin-top: 15px; font-weight: 900; letter-spacing: 2px;">{{ qr_code }}</div>
+        </div>
+
+        <div class="booking-details-box">
+            <div class="details-row"><span class="label">攤位</span> <span>{{ stall.loc_name }}</span></div>
+            <div class="details-row"><span class="label">日期</span> <span>{% for b in bookings %}{{ b.slot.date }}{% if not loop.last %}, {% endif %}{% endfor %}</span></div>
+            <div class="details-row"><span class="label">金額</span> <span>${{ total_price }}</span></div>
+            <div class="details-row"><span class="label">付款</span> <span>{% if bookings[0].payment_method == 'Credit Card' %}信用卡支付{% else %}現場現金{% endif %}</span></div>
+        </div>
+
+        <div class="btn-group">
+            <a href="/my_bookings/{{ tenant.id }}/" class="action-btn">查看我的預約紀錄</a>
+            <a href="/stalls/" class="action-btn" style="background: var(--text-charcoal); color: white;">繼續瀏覽攤位</a>
+        </div>
+    </div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+    new QRCode(document.getElementById("qrcode-canvas"), {
+        text: "{{ qr_code }}", width: 150, height: 150
+    });
+</script>
+</body>
+</html>

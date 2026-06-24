@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>S-Market | 房東管理中心</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { 
+            --bg-paper: #fcfaf2; /* 💡 靈魂：高雅的復古再生紙米白色 */
+            --text-charcoal: #161616; /* 高級深炭黑 */
+            --border-line: #161616;
+            --deep-pink: #c96f8a; /* 莫蘭迪復古粉 */
+        }
+        
+        body { 
+            font-family: 'Noto Sans TC', sans-serif; 
+            background: var(--bg-paper); 
+            margin: 0; 
+            color: var(--text-charcoal); 
+        }
+
+        /* 💡 頂部老雜誌風格的黑底白字導航列 */
+        .navbar {
+            background: var(--text-charcoal); padding: 15px 50px; display: flex;
+            justify-content: space-between; align-items: center; color: var(--bg-paper);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 1000;
+        }
+        .navbar .logo { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 900; font-style: italic; color: var(--bg-paper); text-decoration: none; }
+        .user-info span b { color: #f3c1cf; margin: 0 5px; }
+
+        .container { max-width: 1000px; margin: 50px auto; padding: 0 20px; }
+
+        /* 大標題排版優化 */
+        h2.section-main-title {
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 2rem;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 40px;
+            letter-spacing: -1px;
+            position: relative;
+        }
+        h2.section-main-title::after {
+            content: ''; display: block; width: 80px; height: 2px; background: var(--text-charcoal); margin: 15px auto 0 auto;
+        }
+
+        /* 💡 核心優化：四大區域選擇框改為俐落的雙欄橫向直角格子 */
+        .region-grid { 
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 50px; 
+        }
+        @media (max-width: 768px) {
+            .region-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+        .region-card {
+            background: white; border: 1px solid var(--border-line); border-radius: 0px; padding: 30px 20px; text-align: center;
+            cursor: pointer; transition: all 0.3s ease; box-shadow: none;
+        }
+        .region-card:hover { transform: translateY(-3px); border-color: var(--text-charcoal); background: var(--bg-paper); }
+        .region-card.active { border: 2px solid var(--border-line); background: #faf9f2; font-weight: bold; box-shadow: inset 0 0 0 1px var(--text-charcoal); }
+        .region-card .icon { font-size: 32px; margin-bottom: 10px; display: block; filter: grayscale(0.3); }
+        .region-card h3 { font-family: 'Playfair Display', 'Noto Sans TC', serif; font-size: 1.25rem; margin: 0 0 8px 0; color: var(--text-charcoal); }
+        .region-card small { color: #555; font-weight: 600; display: block; font-size: 0.85rem; }
+
+        /* 💡 表單區域徹底線條化，去除圓角發光 */
+        .form-section { 
+            background: white; padding: 45px 40px; border: 2px solid var(--border-line); border-radius: 0px; 
+            box-shadow: none; max-width: 800px; margin: 0 auto 60px auto;
+            display: none; 
+            animation: fadeIn 0.5s;
+        }
+        .form-section.show { display: block; }
+        
+        .form-group { margin-bottom: 25px; }
+        .form-section h2 { font-family: 'Playfair Display', 'Noto Sans TC', serif; font-size: 1.8rem; font-weight: 900; border-bottom: 1px solid var(--border-line); padding-bottom: 12px; margin-top: 0; margin-bottom: 30px; }
+        
+        label { display: block; font-family: 'Playfair Display', 'Noto Sans TC', serif; margin-bottom: 10px; font-weight: 700; color: var(--text-charcoal); font-size: 1.05rem; }
+        input, select, textarea { 
+            width: 100%; padding: 14px; border: 1px solid var(--border-line); border-radius: 0px; 
+            font-size: 1rem; box-sizing: border-box; font-family: inherit; background-color: var(--bg-paper);
+            color: var(--text-charcoal); outline: none; transition: all 0.2s ease;
+        }
+        input:focus, select:focus, textarea:focus { background-color: #ffffff; border: 2px solid var(--border-line); }
+        textarea { resize: vertical; }
+
+        /* 表單內部的行政區網格按鈕 */
+        .dist-grid { 
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; 
+            max-height: 200px; overflow-y: auto; padding: 12px; border: 1px solid var(--border-line); border-radius: 0px; background: #ffffff;
+        }
+        @media (max-width: 576px) { .dist-grid { grid-template-columns: repeat(2, 1fr); } }
+        .dist-btn { padding: 10px 5px; background: var(--bg-paper); border: 1px solid var(--border-line); border-radius: 0px; cursor: pointer; font-size: 0.85rem; font-weight: 700; color: var(--text-charcoal); }
+        .dist-btn.active { background: var(--text-charcoal); color: white; border-color: var(--text-charcoal); }
+
+        /* 滿色深色雜誌風發佈按鈕 */
+        .submit-btn { width: 100%; padding: 18px; background: var(--text-charcoal); color: var(--bg-paper); border: 2px solid var(--text-charcoal); border-radius: 0px; cursor: pointer; font-size: 1.15rem; font-weight: bold; letter-spacing: 2px; margin-top: 20px; transition: all 0.3s ease; }
+        .submit-btn:hover { background: var(--deep-pink); border-color: var(--deep-pink); color: white; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+    <a href="/landlord/hub/{{ user.id }}/" class="logo">✨ SMARKET</a>
+    <div class="user-info">
+        <span>👤 帳號: <b>{{ user.username }}</b></span>
+        <span>🏷️ 角色: <b>{{ user.role }}</b></span>
+        <span>⭐ 評分: <b>{{ user.reputation_score }} ★</b></span>
+    </div>
+</nav>
+
+<div class="container">
+    <h2 class="section-main-title">第一步：選擇攤位所屬區域</h2>
+    
+    <!-- 💡 核心變更：保留卡片點選，移除所有地圖元件 -->
+    <div class="region-grid">
+        <div class="region-card" onclick="selectRegion('North', this)">
+            <span class="icon">❤️</span>
+            <h3>北部地區</h3>
+            <small>基北北桃竹宜</small>
+        </div>
+        <div class="region-card" onclick="selectRegion('Central', this)">
+            <span class="icon">💛</span>
+            <h3>中部地區</h3>
+            <small>苗中彰投雲</small>
+        </div>
+        <div class="region-card" onclick="selectRegion('South', this)">
+            <span class="icon">💚</span>
+            <h3>南部地區</h3>
+            <small>嘉南高屏澎</small>
+        </div>
+        <div class="region-card" onclick="selectRegion('East', this)">
+            <span class="icon">🩵</span>
+            <h3>東部與離島</h3>
+            <small>花東金馬</small>
+        </div>
+    </div>
+
+    <div id="stall-form-section" class="form-section">
+        <h2 id="form-title">🏗️ 填寫攤位詳細資訊</h2>
+        <form method="POST">
+            <div class="form-group">
+                <label>📍 攤位名稱</label>
+                <input type="text" name="loc_name" placeholder="請填寫您的攤位黃金名稱..." required>
+            </div>
+
+            <div class="form-group">
+                <label>1. 選擇縣市</label>
+                <select id="city-select" name="city" onchange="updateDistricts()" required>
+                    <option value="">-- 請先點選上方區域 --</option>
+                </select>
+            </div>
+
+            <div id="dist-group" class="form-group" style="display:none;">
+                <label>2. 選擇行政區</label>
+                <div id="dist-container" class="dist-grid"></div>
+                <input type="hidden" id="dist-input" name="district">
+            </div>
+
+            <div id="road-group" class="form-group" style="display:none;">
+                <label>3. 選擇道路</label>
+                <input type="text" id="road-input" name="road" placeholder="例如：中山路、中正路" required>
+            </div>
+
+            <div class="form-group">
+                <label>4. 門牌 / 詳細地址</label>
+                <input type="text" name="address_detail" placeholder="例如：100號" required>
+            </div>
+            
+            <div class="form-group">
+                 <label>5. 設施與特色描述</label>
+                 <textarea name="facilities" rows="4" placeholder="請詳細描述您提供的硬體設施或攤位環境特色..."></textarea>
+            </div>
+            <button type="submit" class="submit-btn">🚀 立即發佈攤位</button>
+        </form>
+    </div>
+</div>
+
+<script>
+const regions = { 'North': ['基隆市', '台北市', '新北市', '桃園市', '新竹市', '新竹縣', '宜蘭縣'], 'Central': ['苗栗縣', '台中市', '彰化縣', '南投縣', '雲林縣'], 'South': ['嘉義市', '嘉義縣', '台南市', '高雄市', '屏東縣', '澎湖縣'], 'East': ['花蓮縣', '台東縣', '金門縣', '連江縣'] };
+const db = {
+    "基隆市": { "仁愛區":["中正路"], "信義區":["信一路"], "中正區":["中正路"], "中山區":["中山一路"], "安樂區":["安樂路"], "暖暖區":["暖暖街"], "七堵區":["明德一路"] },
+    "台北市": { "中正區":["羅斯福路"], "大同區":["承德路"], "中山區":["中山北路"], "松山區":["南京東路"], "大安區":["忠孝東路"], "萬華區":["中華路"], "信義區":["信義路"], "士林區":["中正路"], "北投區":["中央北路"], "內湖區":["成功路"], "南港區":["南港路"], "文山區":["木柵路"] },
+    "新北市": { "萬里區":["瑪鋉路"], "金山區":["中山路"], "板橋區":["文化路"], "汐止區":["大同路"], "深坑區":["北深路"], "石碇區":["靜安路"], "瑞芳區":["中正路"], "平溪區":["靜安路"], "雙溪區":["太平路"], "貢寮區":["真理街"], "新店區":["北新路"], "坪林區":["北宜路"], "烏來區":["烏來街"], "永和區":["永和路"], "中和區":["景平路"], "土城區":["中央路"], "三峽區":["介壽路"], "樹林區":["中山路"], "鶯歌區":["文化路"], "三重區":["重新路"], "新莊區":["中正路"], "泰山區":["明志路"], "林口區":["文化一路"], "蘆洲區":["三民路"], "五股區":["成泰路"], "八里區":["龍米路"], "淡水區":["中正路"], "三芝區":["淡金路"], "石門區":["中山路"] },
+    "桃園市": { "中壢區":["中正路"], "平鎮區":["中豐路"], "龍潭區":["中正路"], "楊梅區":["中山路"], "新屋區":["中山路"], "觀音區":["成功路"], "桃園區":["進步路"], "龜山區":["萬壽路"], "八德區":["介壽路"], "大溪區":["中正路"], "復興區":["中正路"], "大園區":["中正路"], "蘆竹區":["南崁路"] },
+    "新竹市": { "東區":["光復路"], "北區":["中正路"], "香山區":["中華路"] },
+    "新竹縣": { "竹北市":["光明六路"], "湖口鄉":["中正路"], "新豐鄉":["新興路"], "新埔鎮":["中正路"], "關西鎮":["中山路"], "芎林鄉":["文山路"], "寶山鄉":["寶山路"], "竹東鎮":["中興路"], "五峰鄉":["和平路"], "橫山鄉":["中豐路"], "尖石鄉":["中山路"], "北埔鄉":["北埔街"], "峨眉鄉":["峨眉路"] },
+    "宜蘭縣": { "宜蘭市":["中山路"], "頭城鎮":["開蘭路"], "礁溪鄉":["礁溪路"], "壯圍鄉":["壯圍路"], "員山鄉":["員山路"], "羅東鎮":["中正路"], "三星鄉":["三星路"], "大同鄉":["泰雅路"], "五結鄉":["五結路"], "冬山鄉":["冬山路"], "蘇澳鎮":["中山路"], "南澳鄉":["蘇花路"] },
+    "苗栗縣": { "竹南鎮":["博愛街"], "頭份市":["自強路"], "三灣鄉":["中正路"], "南庄鄉":["文化路"], "獅潭鄉":["新店村"], "後龍鎮":["中山路"], "通霄鎮":["中山路"], "苑裡鎮":["中山路"], "苗栗市":["中正路"], "造橋鄉":["平仁路"], "頭屋鄉":["中正路"], "公館鄉":["近光路"], "大湖鄉":["中山路"], "泰安鄉":["清安村"], "銅鑼鄉":["中正路"], "三義鄉":["中正路"], "西湖鄉":["店仔街"], "卓蘭鎮":["中山路"] },
+    "台中市": { "中區":["台灣大道"], "東區":["復興路"], "南區":["復興路"], "西區":["公益路"], "北區":["健行路"], "北屯區":["文心路"], "西屯區":["台灣大道"], "南屯區":["五權西路"], "太平區":["中山路"], "大里區":["中興路"], "霧峰區":["中正路"], "烏日區":["中山路"], "豐原區":["中正路"], "后里區":["三豐路"], "石岡區":["豐勢路"], "東勢區":["豐勢路"], "和平區":["東關路"], "新社區":["中和街"], "潭子區":["中山路"], "大雅區":["中清路"], "神岡區":["中山路"], "大肚區":["沙田路"], "沙鹿區":["中山路"], "龍井區":["沙田路"], "梧棲區":["台灣大道"], "清水區":["中山路"], "大甲區":["中山路"], "外埔區":["甲后路"], "大安區":["中山路"] },
+    "彰化縣": { "彰化市":["中山路"], "芬園鄉":["彰南路"], "花壇鄉":["中山路"], "秀水鄉":["中山路"], "鹿港鎮":["中山路"], "福興鄉":["員鹿路"], "線西鄉":["沿海路"], "和美鎮":["彰美路"], "伸港鄉":["中山路"], "員林市":["中山路"], "社頭鄉":["員集路"], "永靖鄉":["中山路"], "埔心鄉":["員鹿路"], "溪湖鎮":["員鹿路"], "大村鄉":["中山路"], "埔鹽鄉":["彰水水路"], "田中鎮":["中州路"], "北斗鎮":["中山路"], "田尾鄉":["中山路"], "埤頭鄉":["彰水路"], "溪州鄉":["中山路"], "竹塘鄉":["中山路"], "二林鎮":["斗苑路"], "大城鄉":["中山路"], "芳苑鄉":["芳漢路"], "二水鄉":["員集路"] },
+    "南投縣": { "南投市":["中興路"], "中寮鄉":["永安街"], "草屯鎮":["中正路"], "國姓鄉":["中正路"], "埔里鎮":["中山路"], "仁愛鄉":["仁愛橋"], "名間鄉":["彰南路"], "集集鎮":["民生路"], "水里鄉":["中山路"], "魚池鄉":["中山路"], "信義鄉":["玉山路"], "竹山鎮":["集山路"], "鹿谷鄉":["中正路"] },
+    "雲林縣": { "斗南鎮":["延平路"], "大埤鄉":["中山路"], "虎尾鎮":["林森路"], "土庫鎮":["中正路"], "褒忠鄉":["中正路"], "東勢鄉":["中山路"], "臺西鄉":["中山路"], "崙背鄉":["中山路"], "麥寮鄉":["中山路"], "斗六市":["大學路"], "林內鄉":["中山路"], "古坑鄉":["中正路"], "迿桐鄉":["中山路"], "西螺鎮":["延平路"], "二崙鄉":["中山路"], "北港鎮":["中山路"], "水林鄉":["中山路"], "口湖鄉":["中山路"], "四湖鄉":["中山路"], "元長鄉":["中山路"] },
+    "嘉義市": { "東區":["中山路"], "西區":["世賢路"] },
+    "嘉義縣": { "番路鄉":["中正路"], "梅山鄉":["中山路"], "竹崎鄉":["中山路"], "阿里山鄉":["中山路"], "中埔鄉":["中山路"], "大埔鄉":["中山路"], "水上鄉":["中山路"], "鹿草鄉":["中山路"], "太保市":["中山路"], "朴子市":["山通路"], "東石鄉":["中山路"], "六腳鄉":["中山路"], "新港鄉":["中山路"], "民雄鄉":["建國路"], "大林鎮":["中山路"], "溪口鄉":["中山路"], "義竹鄉":["中山路"], "布袋鎮":["中山路"] },
+    "台南市": { "中西區":["府前路"], "東區":["中華東路"], "南區":["健康路"], "北區":["成功路"], "安平區":["安平路"], "安南區":["海佃路"], "永康區":["中正路"], "歸仁區":["中正路"], "新化區":["中山路"], "左鎮區":["中山路"], "玉井區":["中正路"], "楠西區":["中正路"], "南化區":["中山路"], "仁德區":["中山路"], "關廟區":["中山路"], "龍崎區":["中山路"], "官田區":["中山路"], "麻豆區":["中山路"], "佳里區":["中山路"], "西港區":["中山路"], "七股區":["中山路"], "將軍區":["中山路"], "學甲區":["中山路"], "北門區":["中山路"], "新營區":["中山路"], "後壁區":["中山路"], "白河區":["中山路"], "東山區":["中山路"], "六甲區":["中山路"], "下營區":["中山路"], "柳營區":["中山路"], "鹽水區":["中山路"], "善化區":["中山路"], "大內區":["中山路"], "山上區":["中山路"], "新市區":["中山路"], "安定區":["中山路"] },
+    "高雄市": { "新興區":["中山路"], "前金區":["中正路"], "苓雅區":["三多路"], "鹽埕區":["大勇路"], "鼓山區":["臨海路"], "旗津區":["旗津路"], "前鎮區":["中山路"], "三民區":["九如路"], "楠梓區":["楠梓新路"], "小港區":["中山路"], "左營區":["博愛路"], "仁武區":["鳳仁路"], "大社區":["中山路"], "岡山區":["岡山路"], "路竹區":["中山路"], "阿蓮區":["中山路"], "田寮區":["中山路"], "燕巢區":["中山路"], "橋頭區":["成功路"], "梓官區":["中正路"], "彌陀區":["中正路"], "永安區":["中正路"], "湖內區":["中正路"], "鳳山區":["光遠路"], "大寮區":["鳳屏路"], "林園區":["沿海路"], "鳥松區":["中正路"], "大樹區":["中正路"], "旗山區":["中山路"], "美濃區":["中正路"], "六龜區":["中山路"], "內門區":["中山路"], "杉林區":["中山路"], "甲仙區":["中山路"], "桃源區":["中山路"], "那瑪夏區":["中山路"], "茂林區":["中山路"], "茄萣區":["中正路"] },
+    "屏東縣": { "屏東市":["長正路"], "三地門鄉":["中山路"], "霧臺鄉":["中山路"], "瑪家鄉":["中山路"], "九如鄉":["中山路"], "里港鄉":["中山路"], "高樹鄉":["中山路"], "鹽埔鄉":["中山路"], "長治鄉":["中山路"], "麟洛鄉":["中山路"], "竹田鄉":["中山路"], "內埔鄉":["中山路"], "萬丹鄉":["中山路"], "潮州鎮":["中山路"], "泰武鄉":["中山路"], "來義鄉":["中山路"], "萬巒鄉":["中山路"], "放寮鄉":["中山路"], "新埤鄉":["中山路"], "南州鄉":["中山路"], "林邊鄉":["中山路"], "東港鎮":["中山路"], "琉球鄉":["中山路"], "佳冬鄉":["中山路"], "新園鄉":["中山路"], "枋寮鄉":["中山路"], "枋山鄉":["中山路"], "春日鄉":["中山路"], "獅子鄉":["中山路"], "車城鄉":["中山路"], "牡丹鄉":["中山路"], "恆春鎮":["中山路"], "滿州鄉":["中山路"] },
+    "澎湖縣": { "馬公市":["中正路"], "西嶼鄉":["中山路"], "望安鄉":["中正路"], "七美鄉":["中山路"], "白沙鄉":["中山路"], "湖西鄉":["中山路"] },
+    "台東縣": { "臺東市":["中山路"], "綠島鄉":["中山路"], "蘭嶼鄉":["中山路"], "延平鄉":["中山路"], "卑南鄉":["中山路"], "鹿野鄉":["中山路"], "關山鎮":["中山路"], "海端鄉":["中山路"], "池上鄉":["中山路"], "東河鄉":["中山路"], "成功鎮":["中山路"], "長濱鄉":["中山路"], "太麻里鄉":["中山路"], "金峰鄉":["中山路"], "大武鄉":["中山路"], "達仁鄉":["中山路"] },
+    "花蓮縣": { "花蓮市":["中山路"], "新城鄉":["中山路"], "秀林鄉":["中山路"], "吉安鄉":["中山路"], "壽豐鄉":["中山路"], "鳳林鎮":["中山路"], "光復鄉":["中山路"], "豐濱鄉":["中山路"], "瑞穗鄉":["中山路"], "萬榮鄉":["中山路"], "玉里鎮":["中山路"], "卓溪鄉":["中山路"], "富里鄉":["中山路"] },
+    "金門縣": { "金沙鎮":["中山路"], "金湖鎮":["太湖路"], "金寧鄉":["環島路"], "金城鎮":["民生路"], "烈嶼鄉":["中正路"], "烏坵鄉":["中山路"] },
+    "連江縣": { "南竿鄉":["中山路"], "北竿鄉":["中山路"], "莒光鄉":["中山路"], "東引鄉":["中山路"] }
+};
+
+function selectRegion(regionKey, cardElement) {
+    // 切換卡片選取狀態
+    document.querySelectorAll('.region-card').forEach(c => c.classList.remove('active'));
+    if (cardElement) { cardElement.classList.add('active'); }
+    
+    // 顯示表單區塊
+    document.getElementById('stall-form-section').classList.add('show');
+    
+    // 更新縣市選單
+    const citySelect = document.getElementById('city-select');
+    citySelect.length = 1; // 清空舊選項
+    regions[regionKey].forEach(city => { citySelect.options.add(new Option(city, city)); });
+    
+    // 隱藏行政區與道路，等使用者選縣市
+    document.getElementById('dist-group').style.display = 'none';
+    document.getElementById('road-group').style.display = 'none';
+}
+
+function updateDistricts() {
+    const cityName = document.getElementById('city-select').value;
+    const distGroup = document.getElementById('dist-group');
+    const container = document.getElementById('dist-container');
+    if (!cityName) return;
+    
+    distGroup.style.display = 'block'; 
+    container.innerHTML = '';
+    document.getElementById('road-group').style.display = 'none';
+    
+    const dists = db[cityName] || {};
+    for (let dist in dists) {
+        const btn = document.createElement('button'); 
+        btn.type = "button"; 
+        btn.className = "dist-btn"; 
+        btn.innerText = dist;
+        btn.onclick = () => selectDist(cityName, dist, btn); 
+        container.appendChild(btn);
+    }
+}
+
+function selectDist(cityName, distName, btn) {
+    document.querySelectorAll('.dist-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active'); 
+    document.getElementById('dist-input').value = distName;
+    document.getElementById('road-group').style.display = 'block';
+}
+</script>
+</body>
+</html>

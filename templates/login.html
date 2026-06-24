@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SMARKET | 登入</title>
+    <!-- 引入 Miranda 網站靈魂：古典優雅的襯線字體 Playfair Display -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-paper: #fcfaf2; /* 高雅的復古再生紙米白色 */
+            --text-charcoal: #161616; /* 高級深炭黑 */
+            --border-line: #161616;
+            --error-red: #c62828;
+            /* 根據傳入的角色自動調配懸停主題色 */
+            --accent-color: {% if role == 'Landlord' %}#c96f8a{% else %}#4a7c59{% endif %};
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-paper); 
+            height: 100vh; margin: 0; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            overflow: hidden;
+        }
+
+        /* 💡 報紙印刷感大標題 */
+        .login-title { 
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 3.5rem; 
+            font-weight: 900;
+            font-style: italic; 
+            color: var(--text-charcoal); 
+            margin: 0 0 2rem 0;
+            letter-spacing: -1px;
+            text-align: center;
+            animation: journalFadeIn 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* 💡 實線裁切的硬朗雜誌感登入卡片 */
+        .login-box {
+            width: 90%;
+            max-width: 450px;
+            background: #ffffff;
+            border: 2px solid var(--border-line);
+            border-radius: 0px; /* 堅持直角，徹底洗刷 AI 味 */
+            padding: 45px 40px;
+            box-sizing: border-box;
+            animation: journalFadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* 錯誤提示：偽裝成報紙警報小區塊 */
+        .error-msg {
+            background-color: #fff0f0;
+            color: var(--error-red);
+            border: 1px solid var(--error-red);
+            padding: 12px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 22px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: var(--text-charcoal);
+            margin-bottom: 8px;
+        }
+
+        /* 💡 關鍵優化：去除 AI 愛用的圓角與發光，改用純平直角與穩重的粗黑邊框 */
+        .form-control {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--bg-paper);
+            border: 1px solid var(--border-line);
+            border-radius: 0px;
+            font-size: 1rem;
+            color: var(--text-charcoal);
+            box-sizing: border-box;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        /* 聚焦時邊框加粗，帶有手繪印刷感 */
+        .form-control:focus {
+            border: 2px solid var(--border-line);
+            background-color: #ffffff;
+        }
+
+        /* 💡 雜誌風滿色直角按鈕 */
+        .btn-submit {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: var(--text-charcoal);
+            color: var(--bg-paper);
+            border: 2px solid var(--border-line);
+            border-radius: 0px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 30px;
+        }
+
+        .btn-submit:hover {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            color: #ffffff;
+        }
+
+        /* 底部返回連結 */
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            width: 100%;
+            text-align: center;
+            color: var(--text-charcoal);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+            color: var(--accent-color);
+        }
+
+        @keyframes journalFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 💡 標題與結構完全不動，改用古典斜體字形 -->
+    <h1 class="login-title">SMARKET Login</h1>
+    
+    <div class="login-box">
+        <!-- Django 錯誤訊息防呆 -->
+        {% if error %}
+            <div class="error-msg">⚠️ {{ error }}</div>
+        {% endif %}
+
+        <form method="POST">
+            
+            <div class="form-group">
+                <label>Username / 帳號</label>
+                <input type="text" name="username" class="form-control" placeholder="請輸入您的帳號" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Password / 密碼</label>
+                <input type="password" name="pw" class="form-control" placeholder="請輸入您的密碼" required>
+            </div>
+            
+            <button type="submit" class="btn-submit">確認登入</button>
+        </form>
+
+        <!-- 💡 自動判斷角色動態導回首頁，維持原汁原味路徑 -->
+        <a href="/" class="back-link">← 返回主首頁</a>
+    </div>
+
+</body>
+</html>

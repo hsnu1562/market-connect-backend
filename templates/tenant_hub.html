@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SMARKET | 租客中控大廳</title>
+    <!-- 引入 Miranda 網站靈魂：古典優雅的襯線字體 Playfair Display -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-paper: #fcfaf2; /* 高雅的復古再生紙米白色 */
+            --text-charcoal: #161616; /* 高級深炭黑 */
+            --border-line: #161616;
+            --tenant-accent: #4a617c; /* 租客端：專業沈穩的古董灰藍 */
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-paper); 
+            min-height: 100vh; margin: 0; 
+            display: flex; flex-direction: column;
+            color: var(--text-charcoal);
+        }
+
+        /* 💡 頂部老雜誌風格的黑底白字導航列 */
+        .navbar {
+            background: var(--text-charcoal); padding: 15px 50px; display: flex;
+            justify-content: space-between; align-items: center; color: var(--bg-paper);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 1000;
+        }
+        .navbar .logo { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 900; font-style: italic; color: var(--bg-paper); text-decoration: none; }
+        .user-info span b { color: #a3b1c2; margin: 0 5px; }
+
+        .container { 
+            max-width: 1000px; margin: 60px auto; padding: 0 20px; 
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        /* 💡 報紙頭版引言風 Header */
+        .hub-header {
+            text-align: center;
+            margin-bottom: 4rem;
+            animation: journalFadeIn 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .hub-title { 
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 4rem; 
+            font-weight: 900;
+            font-style: italic; 
+            margin: 0 0 10px 0;
+            letter-spacing: -1px;
+        }
+
+        .hub-subtitle {
+            font-size: 1.1rem;
+            color: #555;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .hub-subtitle span {
+            color: var(--tenant-accent);
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+        }
+
+        /* 💡 核心優化：線條裁切的雙軌功能大網格 */
+        .grid-portal {
+            display: flex; 
+            width: 100%; 
+            gap: 40px; 
+            box-sizing: border-box;
+            animation: journalFadeIn 1.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .portal-card {
+            flex: 1;
+            background: #ffffff;
+            border: 2px solid var(--border-line);
+            border-radius: 0px; 
+            padding: 50px 40px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .portal-card:hover { 
+            background-color: rgba(74, 97, 124, 0.05); 
+            transform: translateY(-5px);
+        }
+
+        .card-icon { 
+            font-size: 4rem; 
+            margin-bottom: 15px; 
+            filter: grayscale(0.2);
+            transition: transform 0.3s ease;
+        }
+        .portal-card:hover .card-icon {
+            transform: scale(1.1) rotate(-4deg);
+        }
+
+        .portal-card h3 {
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-charcoal);
+            margin: 0 0 15px 0;
+        }
+
+        .card-desc {
+            font-size: 0.95rem;
+            color: #555;
+            line-height: 1.6;
+            margin: 0 0 40px 0;
+            min-height: 50px;
+        }
+
+        .btn-portal {
+            display: block;
+            width: 100%;
+            padding: 15px; 
+            text-align: center; 
+            text-decoration: none;
+            font-weight: 700; 
+            font-size: 1rem;
+            letter-spacing: 1px;
+            box-sizing: border-box;
+            border: 2px solid var(--border-line);
+            border-radius: 0px; 
+            transition: all 0.3s ease;
+        }
+
+        .btn-main { background: var(--text-charcoal); color: var(--bg-paper); }
+        .btn-main:hover { background: var(--tenant-accent); color: white; border-color: var(--tenant-accent); }
+
+        .btn-sub { background: transparent; color: var(--text-charcoal); }
+        .btn-sub:hover { background: var(--text-charcoal); color: var(--bg-paper); }
+
+        @keyframes journalFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="/" class="logo">✨ SMARKET</a>
+        <div class="user-info">
+            <span>👤 帳號: <b>{{ user.username }}</b></span>
+            <span>🏷️ 角色: <b>{{ user.role }}</b></span>
+            <span>⭐ 評分: <b>{{ user.reputation_score }} ★</b></span>
+        </div>
+    </nav>
+
+    <div class="container">
+        
+        <div class="hub-header">
+            <h1 class="hub-title">Tenant Station</h1>
+            <div class="hub-subtitle">租客 <span>{{ user.username }}</span>，歡迎探索攤位</div>
+        </div>
+        
+        <div class="grid-portal">
+            
+            <div class="portal-card">
+                <div style="width: 100%;">
+                    <div class="card-icon">🔍</div>
+                    <h3>尋找攤位</h3>
+                    <p class="card-desc">瀏覽全台最新開放的攤位，預約您的時段。</p>
+                </div>
+                <a href="/stalls/" class="btn-portal btn-main">瀏覽攤位</a>
+            </div>
+
+            <div class="portal-card">
+                <div style="width: 100%;">
+                    <div class="card-icon">📅</div>
+                    <h3>我的預約與訂單</h3>
+                    <p class="card-desc">管理您的租借交易紀錄、查看入場 QR Code，並查看房東給您的信譽評分。</p>
+                </div>
+                <a href="/my_bookings/{{ user.id }}/" class="btn-portal btn-sub">查看歷史預約</a>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>

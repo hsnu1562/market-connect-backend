@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>SMARKET | 註冊</title>
+    <!-- 引入 Miranda 網站靈魂：古典優雅的襯線字體 Playfair Display -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-paper: #fcfaf2; /* 高雅的復古再生紙米白色 */
+            --text-charcoal: #161616; /* 高級深炭黑 */
+            --border-line: #161616;
+            /* 根據傳入的角色自動調配懸停主題色：攤主為莫蘭迪粉，租客為古董綠 */
+            --accent-color: {% if role == 'Landlord' %}#c96f8a{% else %}#4a7c59{% endif %};
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-paper); 
+            min-height: 100vh; margin: 0; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            padding: 40px 0; /* 留出垂直呼吸空間，防止輸入框太多被裁切 */
+            box-sizing: border-box;
+        }
+
+        /* 💡 報紙印刷感大標題 */
+        .register-title { 
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 3.5rem; 
+            font-weight: 900;
+            font-style: italic; 
+            color: var(--text-charcoal); 
+            margin: 0 0 0.5rem 0;
+            letter-spacing: -1px;
+            text-align: center;
+            animation: journalFadeIn 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .register-subtitle {
+            font-size: 1.1rem;
+            color: #555;
+            margin: 0 0 2.5rem 0;
+            font-weight: 700;
+            text-align: center;
+            animation: journalFadeIn 1.1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .register-subtitle span {
+            color: var(--accent-color);
+            font-style: italic;
+            font-family: 'Playfair Display', serif;
+        }
+
+        /* 💡 實線線條裁切的硬朗雜誌感註冊卡片 */
+        .register-box {
+            width: 90%;
+            max-width: 550px; /* 註冊欄位較多，稍微加寬至 550px 更好排版 */
+            background: #ffffff;
+            border: 2px solid var(--border-line);
+            border-radius: 0px; /* 堅持直角，徹底洗刷 AI 味 */
+            padding: 45px 40px;
+            box-sizing: border-box;
+            animation: journalFadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* 讓 姓 / 名 在同一排，呈現精緻的雜誌雙欄排版 */
+        .name-row {
+            display: flex;
+            gap: 20px;
+        }
+        .name-row .form-group {
+            flex: 1;
+        }
+
+        .form-group {
+            margin-bottom: 22px;
+            position: relative;
+        }
+
+        .form-group label {
+            display: block;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: var(--text-charcoal);
+            margin-bottom: 8px;
+        }
+
+        /* 💡 去除 AI 愛用的發光與圓角，改用純平直角與穩重的粗黑邊框 */
+        .form-control {
+            width: 100%;
+            padding: 14px;
+            background-color: var(--bg-paper);
+            border: 1px solid var(--border-line);
+            border-radius: 0px;
+            font-size: 1rem;
+            color: var(--text-charcoal);
+            box-sizing: border-box;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        /* 聚焦時邊框加粗，帶有手繪印刷感 */
+        .form-control:focus {
+            border: 2px solid var(--border-line);
+            background-color: #ffffff;
+        }
+
+        /* 💡 雜誌風滿色直角按鈕 */
+        .btn-submit {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: var(--text-charcoal);
+            color: var(--bg-paper);
+            border: 2px solid var(--border-line);
+            border-radius: 0px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 35px;
+        }
+
+        .btn-submit:hover {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            color: #ffffff;
+        }
+
+        /* 底部返回連結 */
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            width: 100%;
+            text-align: center;
+            color: var(--text-charcoal);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: color 0.2s;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+            color: var(--accent-color);
+        }
+
+        @keyframes journalFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 💡 標題與副標題完美對接原始 role 變數 -->
+    <h1 class="register-title">SMARKET Join</h1>
+    <div class="register-subtitle">正在建立 <span>{{ role }}</span> 帳戶門戶</div>
+    
+    <div class="register-box">
+        <form method="POST">
+            
+            <div class="form-group">
+                <label>Username / 帳號</label>
+                <input type="text" name="username" class="form-control" placeholder="請設定您的登入帳號" required>
+            </div>
+
+            <!-- 💡 將「姓」與「名」包裝成並排的網格，畫面非常俐落有型 -->
+            <div class="name-row">
+                <div class="form-group">
+                    <label>First Name / 名字</label>
+                    <input type="text" name="fname" class="form-control" placeholder="例：小明" required>
+                </div>
+                <div class="form-group">
+                    <label>Last Name / 姓氏</label>
+                    <input type="text" name="lname" class="form-control" placeholder="例：陳" required>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Password / 密碼</label>
+                <input type="password" name="pw" class="form-control" placeholder="請設定密碼 (至少 8 個字元)" minlength="8" required>
+            </div>
+
+            <div class="form-group">
+                <label>Phone / 電話號碼</label>
+                <input type="text" name="phone" class="form-control" placeholder="例：0912345678" 
+                        pattern="[0-9]{10}" 
+                        inputmode="numeric" 
+                        maxlength="10" 
+                        placeholder="例：0912345678 (必須為 10 位數字)" required>
+            </div>
+            
+            <button type="submit" class="btn-submit">確認註冊並登入</button>
+        </form>
+
+        <a href="/" class="back-link">← 返回主首頁</a>
+    </div>
+
+</body>
+</html>
