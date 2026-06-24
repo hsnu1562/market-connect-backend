@@ -19,6 +19,9 @@ It preserves the prototype's main flows:
 - booking history
 - two-way reviews and reputation updates
 
+For a detailed explanation of why HTML files live in this backend repo and how
+the folders should be maintained, read [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md).
+
 ## Run Locally
 
 Recommended Conda env name: `Market_Connection`.
@@ -70,7 +73,12 @@ Demo accounts after `seed-demo`:
 - `market_connect/web/`: browser page routes for landlords and tenants.
 - `market_connect/services/`: shared booking, payment, review, and seed logic.
 - `market_connect/models.py`: SQLAlchemy models for users, stalls, slots, bookings, prices, and reviews.
-- `templates/`: converted Jinja templates from the Django prototype.
+- `templates/`: server-rendered frontend HTML files. They are frontend-facing,
+  but they stay in this Flask backend repo because Flask renders them on the
+  server with `render_template(...)`.
+- `static/`: future CSS, JavaScript, images, and browser assets.
+- `migrations/`: future database migrations.
+- `fixtures/`: future seed/demo data files.
 - `tests/`: smoke tests for the booking/payment flow.
 
 ## API Routes
