@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>SMARKET | 註冊</title>
+    <title>SPACIS | 登入</title>
     <!-- 引入 Miranda 網站靈魂：古典優雅的襯線字體 Playfair Display -->
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
     <style>
@@ -10,50 +10,36 @@
             --bg-paper: #fcfaf2; /* 高雅的復古再生紙米白色 */
             --text-charcoal: #161616; /* 高級深炭黑 */
             --border-line: #161616;
-            /* 根據傳入的角色自動調配懸停主題色：攤主為莫蘭迪粉，租客為古董綠 */
+            --error-red: #c62828;
+            /* 根據傳入的角色自動調配懸停主題色 */
             --accent-color: {% if role == 'Landlord' %}#c96f8a{% else %}#4a7c59{% endif %};
         }
 
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background-color: var(--bg-paper); 
-            min-height: 100vh; margin: 0; 
+            height: 100vh; margin: 0; 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            padding: 40px 0; /* 留出垂直呼吸空間，防止輸入框太多被裁切 */
-            box-sizing: border-box;
+            overflow: hidden;
         }
 
         /* 💡 報紙印刷感大標題 */
-        .register-title { 
+        .login-title { 
             font-family: 'Playfair Display', 'Noto Sans TC', serif;
             font-size: 3.5rem; 
             font-weight: 900;
             font-style: italic; 
             color: var(--text-charcoal); 
-            margin: 0 0 0.5rem 0;
+            margin: 0 0 2rem 0;
             letter-spacing: -1px;
             text-align: center;
             animation: journalFadeIn 1s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .register-subtitle {
-            font-size: 1.1rem;
-            color: #555;
-            margin: 0 0 2.5rem 0;
-            font-weight: 700;
-            text-align: center;
-            animation: journalFadeIn 1.1s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        .register-subtitle span {
-            color: var(--accent-color);
-            font-style: italic;
-            font-family: 'Playfair Display', serif;
-        }
-
-        /* 💡 實線線條裁切的硬朗雜誌感註冊卡片 */
-        .register-box {
+        /* 💡 實線裁切的硬朗雜誌感登入卡片 */
+        .login-box {
             width: 90%;
-            max-width: 550px; /* 註冊欄位較多，稍微加寬至 550px 更好排版 */
+            max-width: 450px;
             background: #ffffff;
             border: 2px solid var(--border-line);
             border-radius: 0px; /* 堅持直角，徹底洗刷 AI 味 */
@@ -62,13 +48,16 @@
             animation: journalFadeIn 1.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* 讓 姓 / 名 在同一排，呈現精緻的雜誌雙欄排版 */
-        .name-row {
-            display: flex;
-            gap: 20px;
-        }
-        .name-row .form-group {
-            flex: 1;
+        /* 錯誤提示：偽裝成報紙警報小區塊 */
+        .error-msg {
+            background-color: #fff0f0;
+            color: var(--error-red);
+            border: 1px solid var(--error-red);
+            padding: 12px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-align: center;
         }
 
         .form-group {
@@ -85,7 +74,7 @@
             margin-bottom: 8px;
         }
 
-        /* 💡 去除 AI 愛用的發光與圓角，改用純平直角與穩重的粗黑邊框 */
+        /* 💡 關鍵優化：去除 AI 愛用的圓角與發光，改用純平直角與穩重的粗黑邊框 */
         .form-control {
             width: 100%;
             padding: 14px;
@@ -119,7 +108,7 @@
             letter-spacing: 2px;
             cursor: pointer;
             transition: all 0.3s ease;
-            margin-top: 35px;
+            margin-top: 30px;
         }
 
         .btn-submit:hover {
@@ -153,47 +142,31 @@
 </head>
 <body>
 
-    <!-- 💡 標題與副標題完美對接原始 role 變數 -->
-    <h1 class="register-title">SMARKET Join</h1>
-    <div class="register-subtitle">正在建立 <span>{{ role }}</span> 帳戶門戶</div>
+    <!-- 💡 標題與結構完全不動，改用古典斜體字形 -->
+    <h1 class="login-title">SPACIS Login</h1>
     
-    <div class="register-box">
+    <div class="login-box">
+        <!-- Django 錯誤訊息防呆 -->
+        {% if error %}
+            <div class="error-msg">⚠️ {{ error }}</div>
+        {% endif %}
+
         <form method="POST">
             
             <div class="form-group">
                 <label>Username / 帳號</label>
-                <input type="text" name="username" class="form-control" placeholder="請設定您的登入帳號" required>
-            </div>
-
-            <!-- 💡 將「姓」與「名」包裝成並排的網格，畫面非常俐落有型 -->
-            <div class="name-row">
-                <div class="form-group">
-                    <label>First Name / 名字</label>
-                    <input type="text" name="fname" class="form-control" placeholder="例：小明" required>
-                </div>
-                <div class="form-group">
-                    <label>Last Name / 姓氏</label>
-                    <input type="text" name="lname" class="form-control" placeholder="例：陳" required>
-                </div>
+                <input type="text" name="username" class="form-control" placeholder="請輸入您的帳號" required>
             </div>
             
             <div class="form-group">
                 <label>Password / 密碼</label>
-                <input type="password" name="pw" class="form-control" placeholder="請設定密碼 (至少 8 個字元)" minlength="8" required>
-            </div>
-
-            <div class="form-group">
-                <label>Phone / 電話號碼</label>
-                <input type="text" name="phone" class="form-control" placeholder="例：0912345678" 
-                        pattern="[0-9]{10}" 
-                        inputmode="numeric" 
-                        maxlength="10" 
-                        placeholder="例：0912345678 (必須為 10 位數字)" required>
+                <input type="password" name="pw" class="form-control" placeholder="請輸入您的密碼" required>
             </div>
             
-            <button type="submit" class="btn-submit">確認註冊並登入</button>
+            <button type="submit" class="btn-submit">確認登入</button>
         </form>
 
+        <!-- 💡 自動判斷角色動態導回首頁，維持原汁原味路徑 -->
         <a href="/" class="back-link">← 返回主首頁</a>
     </div>
 

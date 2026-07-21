@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
+from pathlib import Path
 
 import pytest
 from werkzeug.security import generate_password_hash
@@ -55,11 +56,12 @@ def app():
         )
         db.session.add_all([landlord, tenant1, tenant2, stall])
         db.session.flush()
+        available_date = date.today() + timedelta(days=7)
         db.session.add_all(
             [
-                Slot(stall=stall, date=date(2026, 5, 20), time=8, price=300),
-                Slot(stall=stall, date=date(2026, 5, 20), time=9, price=300),
-                Slot(stall=stall, date=date(2026, 5, 20), time=10, price=400),
+                Slot(stall=stall, date=available_date, time=8, price=300),
+                Slot(stall=stall, date=available_date, time=9, price=300),
+                Slot(stall=stall, date=available_date, time=10, price=400),
             ]
         )
         db.session.commit()
@@ -70,6 +72,43 @@ def app():
 @pytest.fixture()
 def client(app):
     return app.test_client()
+
+
+def test_homepage_shows_available_stalls(client):
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert b"SPACIS" in response.data
+    assert b"Huashan Stall A" in response.data
+    assert b"Taipei" in response.data
+    assert b"NT$ 300" in response.data
+    assert b'href="/login/Tenant"' in response.data
+
+
+def test_homepage_links_tenant_to_booking(app, client):
+    with app.app_context():
+        tenant = User.query.filter_by(username="tenant1").one()
+        stall = Stall.query.filter_by(loc_name="Huashan Stall A").one()
+        booking_url = f"/booking_page/{stall.id}/{tenant.id}/"
+
+    with client.session_transaction() as session:
+        session["user_id"] = tenant.id
+        session["user_role"] = "Tenant"
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert f'href="{booking_url}"'.encode() in response.data
+    assert b"tenant1" in response.data
+
+
+def test_templates_use_spacis_brand():
+    templates_dir = Path(__file__).resolve().parents[1] / "templates"
+
+    for template_path in templates_dir.glob("*.html"):
+        template = template_path.read_text(encoding="utf-8")
+        assert "SMARKET" not in template
+        assert "S-Market" not in template
 
 
 def test_complete_booking_flow(app, client):

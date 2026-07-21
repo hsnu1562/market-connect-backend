@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="探索近期可租用的市集攤位、空檔與租金。">
+    <title>SPACIS | 找到下一個出攤位置</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --paper: #f3efe3;
+            --paper-light: #fffdf6;
+            --ink: #171a17;
+            --muted: #67685f;
+            --line: #252820;
+            --green: #315c45;
+            --green-light: #dce7d7;
+            --saffron: #dea72c;
+            --coral: #bd6955;
+            --shadow: 8px 8px 0 rgba(23, 26, 23, 0.14);
+        }
+
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            margin: 0;
+            color: var(--ink);
+            background-color: var(--paper);
+            background-image:
+                linear-gradient(rgba(23, 26, 23, 0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(23, 26, 23, 0.025) 1px, transparent 1px);
+            background-size: 32px 32px;
+            font-family: 'Noto Sans TC', sans-serif;
+            line-height: 1.6;
+        }
+
+        a { color: inherit; }
+
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            border-bottom: 2px solid var(--line);
+            background: rgba(243, 239, 227, 0.96);
+            backdrop-filter: blur(10px);
+        }
+
+        .topbar {
+            width: min(1320px, calc(100% - 48px));
+            min-height: 76px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 32px;
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            font-family: 'Playfair Display', serif;
+            font-size: 1.45rem;
+            font-weight: 900;
+            letter-spacing: -0.04em;
+        }
+
+        .brand-mark {
+            width: 38px;
+            height: 38px;
+            display: grid;
+            place-items: center;
+            border: 2px solid var(--line);
+            background: var(--saffron);
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 0.72rem;
+            letter-spacing: 0.08em;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-link {
+            padding: 9px 14px;
+            color: var(--ink);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .nav-link:hover { color: var(--green); }
+
+        .nav-link.outline {
+            border: 1.5px solid var(--line);
+            background: var(--paper-light);
+        }
+
+        .nav-link.outline:hover {
+            color: var(--paper-light);
+            background: var(--ink);
+        }
+
+        main {
+            width: min(1320px, calc(100% - 48px));
+            margin: 0 auto;
+        }
+
+        .hero {
+            min-height: 620px;
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.65fr);
+            align-items: stretch;
+            border-right: 2px solid var(--line);
+            border-left: 2px solid var(--line);
+        }
+
+        .hero-copy {
+            padding: clamp(72px, 8vw, 126px) clamp(36px, 7vw, 96px) 72px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border-right: 2px solid var(--line);
+            animation: pageRise 0.7s ease-out both;
+        }
+
+        .eyebrow {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0 0 24px;
+            color: var(--green);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+
+        .eyebrow::before {
+            content: '';
+            width: 44px;
+            height: 3px;
+            background: var(--saffron);
+        }
+
+        .hero h1 {
+            max-width: 850px;
+            margin: 0;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: clamp(3.6rem, 7.4vw, 7rem);
+            font-weight: 900;
+            line-height: 0.96;
+            letter-spacing: -0.065em;
+        }
+
+        .hero h1 em {
+            position: relative;
+            color: var(--green);
+            font-weight: 900;
+            z-index: 1;
+        }
+
+        .hero h1 em::after {
+            content: '';
+            position: absolute;
+            right: -2%;
+            bottom: 5%;
+            left: -2%;
+            height: 18%;
+            background: var(--saffron);
+            z-index: -1;
+            transform: rotate(-1deg);
+        }
+
+        .hero-lead {
+            max-width: 660px;
+            margin: 32px 0 0;
+            color: var(--muted);
+            font-size: 1.08rem;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 38px;
+        }
+
+        .button {
+            min-height: 50px;
+            padding: 12px 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--line);
+            color: var(--paper-light);
+            background: var(--ink);
+            text-decoration: none;
+            font-weight: 700;
+            transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+        }
+
+        .button:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: 4px 4px 0 var(--saffron);
+        }
+
+        .button.secondary {
+            color: var(--ink);
+            background: transparent;
+        }
+
+        .market-panel {
+            position: relative;
+            padding: 48px 38px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+            color: var(--paper-light);
+            background: var(--green);
+            animation: pageRise 0.7s 0.12s ease-out both;
+        }
+
+        .market-panel::after {
+            content: 'SP';
+            position: absolute;
+            right: -18px;
+            bottom: -68px;
+            color: rgba(255, 255, 255, 0.07);
+            font-family: 'Playfair Display', serif;
+            font-size: 13rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .panel-heading,
+        .panel-note,
+        .metric-grid { position: relative; z-index: 1; }
+
+        .panel-label {
+            margin: 0 0 18px;
+            color: #e5c668;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+
+        .panel-heading h2 {
+            margin: 0;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 2.35rem;
+            line-height: 1.08;
+        }
+
+        .metric-grid {
+            margin: 46px 0;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            border-top: 1px solid rgba(255, 255, 255, 0.4);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .metric {
+            padding: 22px 10px 22px 0;
+            border-right: 1px solid rgba(255, 255, 255, 0.35);
+        }
+
+        .metric:last-child { border-right: 0; padding-left: 16px; }
+        .metric:nth-child(2) { padding-left: 16px; }
+
+        .metric strong {
+            display: block;
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            line-height: 1;
+        }
+
+        .metric span {
+            display: block;
+            margin-top: 8px;
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 0.76rem;
+        }
+
+        .panel-note {
+            max-width: 290px;
+            margin: 0;
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 0.88rem;
+        }
+
+        .market-strip {
+            margin: 0 -2px;
+            padding: 13px 22px;
+            display: flex;
+            justify-content: space-between;
+            gap: 22px;
+            border: 2px solid var(--line);
+            background: var(--saffron);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            overflow: hidden;
+        }
+
+        .listings-section { padding: 100px 0 72px; }
+
+        .section-heading {
+            margin-bottom: 42px;
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 28px;
+        }
+
+        .section-kicker {
+            margin: 0 0 8px;
+            color: var(--coral);
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .section-heading h2 {
+            margin: 0;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: clamp(2.5rem, 5vw, 4.6rem);
+            line-height: 1;
+            letter-spacing: -0.04em;
+        }
+
+        .section-description {
+            max-width: 420px;
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .stall-grid {
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 24px;
+        }
+
+        .stall-card {
+            grid-column: span 4;
+            min-height: 430px;
+            padding: 26px;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid var(--line);
+            background: var(--paper-light);
+            box-shadow: 5px 5px 0 rgba(23, 26, 23, 0.1);
+            animation: cardRise 0.58s ease-out both;
+        }
+
+        .stall-card.lead-card {
+            grid-column: span 8;
+            background:
+                linear-gradient(90deg, var(--paper-light) 0 72%, var(--green-light) 72% 100%);
+        }
+
+        .card-topline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+        }
+
+        .card-number {
+            color: var(--coral);
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+        }
+
+        .city-tag {
+            padding: 4px 9px;
+            border: 1px solid var(--line);
+            background: var(--saffron);
+        }
+
+        .stall-name {
+            margin: 24px 0 8px;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: clamp(1.7rem, 3vw, 2.6rem);
+            line-height: 1.05;
+            letter-spacing: -0.035em;
+        }
+
+        .stall-address {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.88rem;
+        }
+
+        .facility-list {
+            margin: 22px 0 0;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            list-style: none;
+        }
+
+        .facility-list li {
+            padding: 5px 9px;
+            border: 1px solid #aaa99f;
+            color: #55574f;
+            background: rgba(255, 255, 255, 0.55);
+            font-size: 0.74rem;
+        }
+
+        .availability {
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid #aaa99f;
+        }
+
+        .availability-label {
+            margin: 0 0 12px;
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+        }
+
+        .slot-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .slot {
+            padding: 7px 10px;
+            color: var(--paper-light);
+            background: var(--green);
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+
+        .more-slots {
+            padding: 7px 2px;
+            color: var(--muted);
+            font-size: 0.76rem;
+        }
+
+        .card-footer {
+            margin-top: auto;
+            padding-top: 26px;
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 18px;
+        }
+
+        .price-label {
+            display: block;
+            color: var(--muted);
+            font-size: 0.7rem;
+        }
+
+        .price {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.9rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .price small {
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        .card-action {
+            padding: 10px 14px;
+            border-bottom: 2px solid var(--ink);
+            text-decoration: none;
+            font-size: 0.84rem;
+            font-weight: 700;
+        }
+
+        .card-action:hover {
+            color: var(--green);
+            border-color: var(--saffron);
+        }
+
+        .empty-state {
+            padding: 70px 38px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 30px;
+            border: 2px solid var(--line);
+            background: var(--green-light);
+        }
+
+        .empty-state h3 {
+            margin: 0 0 8px;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 2rem;
+        }
+
+        .empty-state p { margin: 0; color: var(--muted); }
+
+        .workflow {
+            margin-bottom: 96px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            border: 2px solid var(--line);
+            background: var(--paper-light);
+        }
+
+        .workflow-step {
+            min-height: 190px;
+            padding: 30px;
+            border-right: 2px solid var(--line);
+        }
+
+        .workflow-step:last-child { border-right: 0; }
+
+        .workflow-step span {
+            color: var(--coral);
+            font-family: 'Playfair Display', serif;
+            font-size: 1.3rem;
+            font-weight: 900;
+        }
+
+        .workflow-step h3 {
+            margin: 18px 0 8px;
+            font-size: 1.05rem;
+        }
+
+        .workflow-step p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.84rem;
+        }
+
+        .site-footer {
+            padding: 34px 0 42px;
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            border-top: 2px solid var(--line);
+            color: var(--muted);
+            font-size: 0.76rem;
+        }
+
+        @keyframes pageRise {
+            from { transform: translateY(18px); }
+            to { transform: translateY(0); }
+        }
+
+        @keyframes cardRise {
+            from { transform: translateY(24px); }
+            to { transform: translateY(0); }
+        }
+
+        @media (max-width: 980px) {
+            .hero { grid-template-columns: 1fr; }
+            .hero-copy { border-right: 0; border-bottom: 2px solid var(--line); }
+            .market-panel { min-height: 420px; }
+            .stall-card,
+            .stall-card.lead-card { grid-column: span 6; background: var(--paper-light); }
+            .section-heading { align-items: start; flex-direction: column; }
+        }
+
+        @media (max-width: 680px) {
+            .topbar,
+            main {
+                width: calc(100% - 28px);
+                max-width: 1320px;
+            }
+            .topbar { min-height: 68px; gap: 12px; }
+            .brand { font-size: 1.2rem; }
+            .brand-mark { width: 32px; height: 32px; }
+            .nav-link:not(.outline) { display: none; }
+            .nav-link.outline { padding: 7px 10px; font-size: 0.78rem; }
+            .hero { min-height: auto; }
+            .hero-copy { padding: 44px 24px 36px; }
+            .eyebrow { margin-bottom: 18px; font-size: 0.68rem; }
+            .hero h1 { font-size: clamp(2.65rem, 13vw, 3.35rem); }
+            .hero-lead { margin-top: 22px; font-size: 0.92rem; }
+            .hero-actions { gap: 8px; margin-top: 26px; }
+            .button { min-height: 46px; padding: 10px 14px; font-size: 0.84rem; }
+            .market-panel { min-height: auto; padding: 22px 24px; }
+            .panel-heading,
+            .panel-note { display: none; }
+            .metric-grid { margin: 0; }
+            .metric { padding-top: 12px; padding-bottom: 12px; }
+            .metric strong { font-size: 1.55rem; }
+            .metric span { margin-top: 5px; font-size: 0.68rem; }
+            .market-strip { padding: 10px 14px; white-space: nowrap; }
+            .market-strip span:last-child { display: none; }
+            .listings-section { padding-top: 44px; }
+            .section-heading { margin-bottom: 26px; gap: 18px; }
+            .section-heading h2 { font-size: 2.5rem; }
+            .stall-card,
+            .stall-card.lead-card { grid-column: span 12; }
+            .empty-state { grid-template-columns: 1fr; padding: 42px 24px; }
+            .workflow { grid-template-columns: 1fr; }
+            .workflow-step { min-height: auto; border-right: 0; border-bottom: 2px solid var(--line); }
+            .workflow-step:last-child { border-bottom: 0; }
+            .site-footer { flex-direction: column; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                scroll-behavior: auto !important;
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <div class="topbar">
+            <a href="/" class="brand" aria-label="SPACIS 首頁">
+                <span class="brand-mark">SP</span>
+                <span>SPACIS</span>
+            </a>
+            <nav class="nav-links" aria-label="主要導覽">
+                <a href="#availability" class="nav-link">找攤位</a>
+                <a href="{{ provider_url }}" class="nav-link">刊登攤位</a>
+                {% if current_user %}
+                    {% if current_user.role == "Tenant" %}
+                        <a href="/tenant/hub/{{ current_user.id }}/" class="nav-link outline">{{ current_user.username }} · 我的帳戶</a>
+                    {% else %}
+                        <a href="/landlord/hub/{{ current_user.id }}/" class="nav-link outline">{{ current_user.username }} · 管理中心</a>
+                    {% endif %}
+                {% else %}
+                    <a href="/login/Tenant" class="nav-link outline">登入預約</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero" aria-labelledby="hero-title">
+            <div class="hero-copy">
+                <p class="eyebrow">Market spaces, made visible</p>
+                <h1 id="hero-title">找到值得<br><em>出攤</em>的位置。</h1>
+                <p class="hero-lead">
+                    直接比較近期空檔、時段租金與現場設備。先看攤位，再決定登入、預約或刊登，不必從角色選單開始。
+                </p>
+                <div class="hero-actions">
+                    <a href="#availability" class="button">查看近期空檔</a>
+                    <a href="{{ provider_url }}" class="button secondary">我有攤位要出租</a>
+                </div>
+            </div>
+
+            <aside class="market-panel" aria-label="目前市場供應概況">
+                <div class="panel-heading">
+                    <p class="panel-label">Live availability</p>
+                    <h2>近期攤位<br>供應速報</h2>
+                </div>
+                <div class="metric-grid">
+                    <div class="metric">
+                        <strong>{{ stats.stalls }}</strong>
+                        <span>可租攤位</span>
+                    </div>
+                    <div class="metric">
+                        <strong>{{ stats.slots }}</strong>
+                        <span>開放時段</span>
+                    </div>
+                    <div class="metric">
+                        <strong>{{ stats.cities }}</strong>
+                        <span>供應城市</span>
+                    </div>
+                </div>
+                <p class="panel-note">資料直接來自已開放且尚未被預約的時段；完成預約後，對應空檔會自動從供應中移除。</p>
+            </aside>
+        </section>
+
+        <div class="market-strip" aria-hidden="true">
+            <span>近期可租攤位</span>
+            <span>按小時計價</span>
+            <span>即時空檔</span>
+            <span>租客與場地主雙向評價</span>
+        </div>
+
+        <section class="listings-section" id="availability" aria-labelledby="availability-title">
+            <div class="section-heading">
+                <div>
+                    <p class="section-kicker">Available now</p>
+                    <h2 id="availability-title">本期攤位選集</h2>
+                </div>
+                <p class="section-description">依最近可租日期排序。卡片價格為該攤位目前開放時段的最低每小時租金。</p>
+            </div>
+
+            {% if listings %}
+                <div class="stall-grid">
+                    {% for listing in listings %}
+                        <article class="stall-card{% if loop.first %} lead-card{% endif %}" style="animation-delay: {{ loop.index0 * 70 }}ms;">
+                            <div class="card-topline">
+                                <span class="card-number">No. {{ "%02d"|format(loop.index) }}</span>
+                                <span class="city-tag">{{ listing.stall.city }}</span>
+                            </div>
+
+                            <h3 class="stall-name">{{ listing.stall.loc_name }}</h3>
+                            <p class="stall-address">{{ listing.stall.city }} {{ listing.stall.district }} · {{ listing.stall.road }} {{ listing.stall.address_detail }}</p>
+
+                            <ul class="facility-list" aria-label="攤位設備">
+                                {% if listing.facilities %}
+                                    {% for facility in listing.facilities[:3] %}
+                                        <li>{{ facility }}</li>
+                                    {% endfor %}
+                                {% else %}
+                                    <li>基本攤位空間</li>
+                                {% endif %}
+                            </ul>
+
+                            <div class="availability">
+                                <p class="availability-label">NEXT · {{ listing.next_date|date("Y/m/d") }} 起，共 {{ listing.available_days }} 個開放日</p>
+                                <div class="slot-list">
+                                    {% for slot in listing.preview_slots %}
+                                        <span class="slot">{{ slot.date|date("m/d") }} · {{ slot.time }}:00</span>
+                                    {% endfor %}
+                                    {% if listing.slots|length > 3 %}
+                                        <span class="more-slots">另有 {{ listing.slots|length - 3 }} 個時段</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="card-footer">
+                                <div>
+                                    <span class="price-label">每小時起</span>
+                                    <span class="price">NT$ {{ listing.min_price }} <small>/ hr</small></span>
+                                </div>
+                                <a class="card-action" href="{{ listing.action_url }}">{{ listing.action_label }} →</a>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div>
+                        <h3>目前沒有尚未預約的近期時段</h3>
+                        <p>場地主可以先刊登攤位與租金；新的可租時段出現後，會直接顯示在這裡。</p>
+                    </div>
+                    <a href="{{ provider_url }}" class="button">刊登第一個攤位</a>
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="workflow" aria-label="預約流程">
+            <div class="workflow-step">
+                <span>01</span>
+                <h3>先比較供應</h3>
+                <p>從地點、日期、設備和每小時租金判斷是否符合本次出攤需求。</p>
+            </div>
+            <div class="workflow-step">
+                <span>02</span>
+                <h3>選擇連續時段</h3>
+                <p>登入租客帳戶後，可以一次選取同一攤位的多個空檔並建立預約。</p>
+            </div>
+            <div class="workflow-step">
+                <span>03</span>
+                <h3>取得入場憑證</h3>
+                <p>付款流程完成後保留同一組 QR Code，方便確認訂單和現場報到。</p>
+            </div>
+        </section>
+
+        <footer class="site-footer">
+            <span>SPACIS / 攤位媒合與空間預約系統</span>
+            <span>先看供應，再開始預約。</span>
+        </footer>
+    </main>
+</body>
+</html>

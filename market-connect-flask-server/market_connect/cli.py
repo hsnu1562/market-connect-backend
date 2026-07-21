@@ -11,7 +11,7 @@ def register_cli(app: Flask) -> None:
     def init_db_command():
         with app.app_context():
             db.create_all()
-        print("Initialized Flask SQLite database.")
+        print("Initialized application database.")
 
     @app.cli.command("seed-demo")
     def seed_demo_command():
