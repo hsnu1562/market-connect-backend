@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from werkzeug.security import generate_password_hash
 
@@ -39,6 +39,7 @@ def seed_demo_data() -> None:
     )
     db.session.add_all([landlord, tenant, stall])
     db.session.flush()
+    demo_date = date.today() + timedelta(days=7)
     for hour, price in [(8, 300), (9, 300), (10, 400)]:
-        db.session.add(Slot(stall=stall, date=date(2026, 5, 20), time=hour, price=price))
+        db.session.add(Slot(stall=stall, date=demo_date, time=hour, price=price))
     db.session.commit()
