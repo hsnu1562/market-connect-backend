@@ -1,99 +1,57 @@
-# MarketConnect API / Flask Backend
+# MarketConnect Backend Workspace
 
-This repo now contains the Flask backend for MarketConnect/Expoflow. It includes
-both browser-facing web pages and JSON API routes, so the server can be deployed
-as one self-contained Flask application.
+This repository keeps the current Flask backend, project reference data, and
+planning documents together while preserving clear deployment boundaries.
 
-The Flask backend was rewritten from the earlier Django monolith prototype in
-`smart_market.zip`; the previous FastAPI implementation remains available in Git
-history before this migration branch.
+## Repository Layout
 
-It preserves the prototype's main flows:
+- `market-connect-flask-server/`: the deployable Flask web application and JSON API.
+- `market-connect-data/`: local reference data from the earlier Django prototype.
+- `market-connect-docs/`: product planning and project reference documents.
+- `render.yaml`: Render Blueprint for the Flask service on `main`.
 
-- landlord and tenant registration/login
-- landlord stall publishing
-- hourly slot pricing
-- tenant stall search
-- multi-slot booking with one QR code
-- cash/card payment state
-- booking history
-- two-way reviews and reputation updates
+Only `market-connect-flask-server/` is an executable service. The data and docs
+folders are references and are not included in the Render runtime because the
+service uses that folder as its Root Directory.
 
-For a detailed explanation of why HTML files live in this backend repo and how
-the folders should be maintained, read [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md).
+## Render Services
 
-## Run Locally
+### Current Flask Backend
 
-Recommended Conda env name: `Market_Connection`.
+Use these settings for the new backend service:
 
-If the env already exists:
+- Repository: `https://github.com/hsnu1562/market-connect-backend`
+- Branch: `main` after the backend monorepo pull request is merged
+- Root Directory: `market-connect-flask-server`
+- Runtime: Python
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `flask --app app init-db && gunicorn --worker-tmp-dir /dev/shm --bind 0.0.0.0:$PORT app:app`
+- Health Check Path: `/api/v1/health`
 
-```bash
-conda activate Market_Connection
-pip install -r requirements.txt
-flask --app app init-db
-flask --app app seed-demo
-flask --app app run
-```
+The root `render.yaml` contains the same configuration for creating a Render
+Blueprint-managed service.
 
-If the env needs to be recreated:
+### Legacy FastAPI Documentation Service
 
-```bash
-conda env create -f environment.yml
-conda activate Market_Connection
-flask --app app init-db
-flask --app app seed-demo
-flask --app app run
-```
+The existing Swagger service must not deploy `main`. It should use:
 
-Open `http://127.0.0.1:5000`.
+- Repository: `https://github.com/hsnu1562/market-connect-backend`
+- Branch: `legacy/fastapi-api`
+- Root Directory: leave blank
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- Health Check Path: `/`
+- Swagger UI: `/docs`
 
-Alternative virtualenv setup:
+The legacy branch is frozen from commit `db72902`. New backend development
+belongs on `main`; do not merge legacy FastAPI code back into `main`.
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-flask --app app init-db
-flask --app app seed-demo
-flask --app app run
-```
+## Database Policy
 
-Demo accounts after `seed-demo`:
+SQLite databases under `instance/` and `market-connect-data/db.sqlite3` are
+ignored local files. They are useful for development and historical inspection,
+but they are not production databases and must not be committed.
 
-- Tenant: `tenant1` / `tenant1_password`
-- Landlord: `landlord1` / `landlord1_password`
-
-## Structure
-
-- `app.py`: thin compatibility entrypoint for `flask --app app ...`.
-- `models.py`: compatibility re-export for older imports.
-- `market_connect/`: application package.
-- `market_connect/api/v1/`: JSON API routes under `/api/v1`.
-- `market_connect/web/`: browser page routes for landlords and tenants.
-- `market_connect/services/`: shared booking, payment, review, and seed logic.
-- `market_connect/models.py`: SQLAlchemy models for users, stalls, slots, bookings, prices, and reviews.
-- `templates/`: server-rendered frontend HTML files. They are frontend-facing,
-  but they stay in this Flask backend repo because Flask renders them on the
-  server with `render_template(...)`.
-- `static/`: future CSS, JavaScript, images, and browser assets.
-- `migrations/`: future database migrations.
-- `fixtures/`: future seed/demo data files.
-- `tests/`: smoke tests for the booking/payment flow.
-
-## API Routes
-
-- `GET /api/v1/health`: service health check.
-- `GET /api/v1/stalls`: list stalls with available slots.
-- `GET /api/v1/stalls/<stall_id>/slots`: list available slots for one stall.
-- `POST /api/v1/bookings`: create a booking from JSON `user_id` and `slot_ids`.
-- `GET /api/v1/bookings/<qr_code>`: fetch one QR-code booking group.
-- `POST /api/v1/payments`: update payment state from JSON `qr_code` and `payment_method`.
-
-## Notes
-
-- This is still a prototype, not production authentication or payment code.
-- SQLite is used by default at `instance/market_connect.db`.
-- `Booking.slot_id` is unique to prevent double-booking the same slot.
-- Web routes and `/api/v1` routes intentionally live in the same backend repo so
-  the team has one server to run, test, review, and deploy.
+For persistent Render deployments, set `DATABASE_URL` to a managed PostgreSQL
+connection string. Without it, the Flask service uses local SQLite and Render
+can discard that data during restarts or deployments.

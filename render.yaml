@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: market-connect-backend
+    runtime: python
+    plan: free
+    rootDir: market-connect-flask-server
+    buildCommand: pip install -r requirements.txt
+    startCommand: flask --app app init-db && gunicorn --worker-tmp-dir /dev/shm --bind 0.0.0.0:$PORT app:app
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
