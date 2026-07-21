@@ -31,6 +31,12 @@ Use these settings for the new backend service:
 The root `render.yaml` contains the same configuration for creating a Render
 Blueprint-managed service.
 
+Set `DATABASE_URL` in Render's Environment page using the database's Internal
+Database URL when the web service and database are in the same Render region.
+Never commit the URL because it contains database credentials. The start command
+runs `flask --app app init-db`, which creates any missing tables before Gunicorn
+starts serving requests.
+
 ### Legacy FastAPI Documentation Service
 
 The existing Swagger service must not deploy `main`. It should use:
@@ -53,5 +59,7 @@ ignored local files. They are useful for development and historical inspection,
 but they are not production databases and must not be committed.
 
 For persistent Render deployments, set `DATABASE_URL` to a managed PostgreSQL
-connection string. Without it, the Flask service uses local SQLite and Render
-can discard that data during restarts or deployments.
+connection string in Render's Environment page. If the service is created from
+`render.yaml`, Render prompts for this secret during the initial Blueprint setup.
+Without it, the Flask service uses local SQLite and Render can discard that data
+during restarts or deployments.

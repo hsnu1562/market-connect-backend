@@ -58,9 +58,11 @@ When connecting the repository manually, use:
 - Start Command: `flask --app app init-db && gunicorn --worker-tmp-dir /dev/shm --bind 0.0.0.0:$PORT app:app`
 - Health Check Path: `/api/v1/health`
 
-Set a production `SECRET_KEY`. For persistent data, also set `DATABASE_URL` to
-a managed PostgreSQL connection string. Without `DATABASE_URL`, SQLite data can
-be lost whenever Render restarts or redeploys the service.
+Set a production `SECRET_KEY`. For persistent data, set `DATABASE_URL` in
+Render's Environment page to the database's Internal Database URL. Do not place
+the connection string in source code or commit it to Git. The startup command
+creates missing tables automatically. Without `DATABASE_URL`, SQLite data can be
+lost whenever Render restarts or redeploys the service.
 
 Alternative virtualenv setup:
 
