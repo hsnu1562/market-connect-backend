@@ -3,10 +3,11 @@ from __future__ import annotations
 import json
 from collections import OrderedDict
 
-from flask import Blueprint, redirect, render_template, request, session
+from flask import Blueprint, abort, redirect, render_template, request
 
 from ..extensions import db
-from ..models import Booking, Review, Slot, Stall, User
+from ..models import Booking, Review, Slot, Stall
+from ..security import get_current_user, login_required, require_current_user_id
 from .utils import get_or_404, parse_date
 
 
@@ -14,8 +15,9 @@ bp = Blueprint("web_landlord", __name__)
 
 
 @bp.route("/landlord/<int:user_id>/", methods=["GET", "POST"])
+@login_required("Landlord")
 def landlord_dashboard(user_id: int):
-    user = get_or_404(User, user_id)
+    user = require_current_user_id(user_id)
     if request.method == "POST":
         stall = Stall(
             owner=user,
@@ -33,8 +35,9 @@ def landlord_dashboard(user_id: int):
 
 
 @bp.route("/landlord/history/<int:user_id>/")
+@login_required("Landlord")
 def landlord_history(user_id: int):
-    landlord = get_or_404(User, user_id)
+    landlord = require_current_user_id(user_id)
     stall_ids = [stall.id for stall in landlord.stalls]
 
     unbooked_slots = (
@@ -120,9 +123,12 @@ def landlord_history(user_id: int):
 
 
 @bp.route("/stall_pricing/<int:stall_id>/", methods=["GET", "POST"])
+@login_required("Landlord")
 def stall_pricing(stall_id: int):
     stall = get_or_404(Stall, stall_id)
-    user = stall.owner
+    user = get_current_user()
+    if user is None or stall.owner_id != user.id:
+        abort(403)
     if request.method == "POST":
         slots_json = request.form.get("slots_json")
         if slots_json:
@@ -153,8 +159,9 @@ def stall_pricing(stall_id: int):
 
 
 @bp.route("/publish_success/")
+@login_required("Landlord")
 def publish_success():
-    user_id = session.get("user_id")
-    if not user_id:
-        return redirect("/")
-    return render_template("publish_success.html", user_id=user_id)
+    user = get_current_user()
+    if user is None:
+        abort(401)
+    return render_template("publish_success.html", user_id=user.id)

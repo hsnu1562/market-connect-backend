@@ -125,6 +125,7 @@
                                 {% else %}
                                     <span style="color: #c62828; font-weight: bold;">未付款</span>
                                     <form action="/confirm_payment/" method="POST" style="display:inline;">
+                                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                         <input type="hidden" name="booking_id" value="{{ r.booking_id }}">
                                         <button type="submit" style="padding: 4px 8px; font-size: 0.8rem; cursor: pointer;">確認收款</button>
                                     </form>
@@ -169,6 +170,7 @@
     <div style="background: #ffffff; padding: 35px; border-radius: 0px; border: 2px solid var(--border-line); width: 90%; max-width: 400px; color: #161616; box-shadow: 0 15px 40px rgba(0,0,0,0.15);">
         <h3 style="margin-top: 0; color: var(--text-charcoal); font-family: 'Playfair Display', serif; font-size: 1.4rem; font-weight: 700; border-bottom: 1px solid #ccc; padding-bottom: 10px;">⭐ 評價租客：<span id="modal-tenant-name" style="font-style: italic;"></span></h3>
         <form action="/submit_review/" method="POST">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="booking_id" id="modal-landlord-booking-id">
             <div style="margin-bottom: 18px;">
                 <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #444;">給予租客信譽評分：</label>

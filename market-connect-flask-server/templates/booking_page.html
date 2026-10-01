@@ -75,7 +75,8 @@
         <h3>🗓️ 選擇檔期</h3>
         
         {% if slots %}
-            <form action="/make_booking/" method="POST" id="booking-form">                <input type="hidden" name="user_id" value="{{ tenant.id }}">
+            <form action="/make_booking/" method="POST" id="booking-form">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 <table class="slot-table">
                     <thead>
                         <tr>

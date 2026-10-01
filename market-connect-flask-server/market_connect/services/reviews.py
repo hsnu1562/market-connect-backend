@@ -15,12 +15,24 @@ def create_review_for_booking(
     reviewer = db.session.get(User, reviewer_id)
     if booking is None or reviewer is None:
         return False
+    if user_role is None or not reviewer.has_role(user_role) or not 1 <= rating <= 5:
+        return False
+
+    if user_role == "Landlord":
+        if booking.slot.stall.owner_id != reviewer.id:
+            return False
+        reviewee = booking.user
+    elif user_role == "Tenant":
+        if booking.user_id != reviewer.id:
+            return False
+        reviewee = booking.slot.stall.owner
+    else:
+        return False
 
     existing = Review.query.filter_by(booking_id=booking.id, reviewer_id=reviewer.id).first()
     if existing:
         return False
 
-    reviewee = booking.user if user_role == "Landlord" else booking.slot.stall.owner
     review = Review(
         booking=booking,
         reviewer=reviewer,

@@ -24,22 +24,24 @@ its own repo.
 ## Folder Responsibilities
 
 ```text
-market-connect-api/
-  app.py
-  models.py
-  market_connect/
-    api/v1/
-    web/
-    services/
-    integrations/
+market-connect-backend/
+  market-connect-flask-server/
+    app.py
     models.py
-    extensions.py
-  templates/
-  static/
-  migrations/
-  fixtures/
-  tests/
-  instance/
+    market_connect/
+      api/v1/
+      web/
+      services/
+      security.py
+      models.py
+      extensions.py
+    templates/
+    static/
+    docs/
+    migrations/
+    fixtures/
+    tests/
+    instance/
 ```
 
 - `app.py`: Flask entrypoint used by `flask --app app ...`.
@@ -49,20 +51,22 @@ market-connect-api/
 - `market_connect/services/`: business logic shared by web routes and API routes.
 - `market_connect/integrations/`: future external-service code, such as LINE Bot, payment, QR scanning, or notification adapters.
 - `market_connect/models.py`: SQLAlchemy database models.
-- `market_connect/extensions.py`: Flask extension objects such as `db`.
+- `market_connect/extensions.py`: Flask extension objects for SQLAlchemy,
+  Flask-Migrate, and Authlib.
 - `templates/`: server-rendered frontend HTML files.
 - `static/`: future CSS, JavaScript, images, and browser assets.
-- `migrations/`: future database migration files, probably managed by Flask-Migrate/Alembic.
+- `migrations/`: tracked Flask-Migrate/Alembic database migrations.
 - `fixtures/`: future seed/demo data in JSON or CSV format.
 - `tests/`: automated tests.
 - `instance/`: local runtime files such as SQLite databases. This folder is ignored by Git and should not be pushed.
 
 ## Repo Boundaries
 
-- `market-connect-api`: owns the Flask server, HTML routes, JSON API routes, database models, migrations, tests, and deployment instructions.
+- `market-connect-backend`: owns the Flask server, HTML routes, JSON API routes, database models, migrations, tests, and deployment instructions.
+- `market-connect-flask-server`: the deployable Flask service inside this repository. It owns `app.py`, `market_connect/`, templates, static assets, and service-level documentation.
+- `market-connect-api`: the legacy FastAPI documentation service on the `legacy/fastapi-api` branch. It is not the active Flask source tree.
 - `market-connect-utils`: owns crawlers, parsers, exporters, and import-preparation tools.
-- `market-connect-data`: local/reference data only. Do not treat raw SQLite files as the production database source.
-- `market-connect-flask-server`: temporary staging copy only. After this Flask migration is accepted in `market-connect-api`, remove the staging copy to avoid duplicate backend code.
+- `market-connect-docs`: product requirements and source documents that support the backend but are not served by Render.
 
 ## When To Create A Separate Frontend Repo
 
@@ -78,6 +82,19 @@ frontend app, for example:
 Until then, keeping `templates/` and future `static/` assets inside this Flask
 repo is simpler and easier to deploy.
 
+## Account Code
+
+The first-party account flow is intentionally split by responsibility:
+
+- `market_connect/web/auth.py`: browser routes for local login, Google OIDC,
+  role activation, and logout.
+- `market_connect/services/accounts.py`: User-table validation, registration, and password verification.
+- `market_connect/services/identities.py`: external identity lookup and
+  transactional Google account creation.
+- `market_connect/security.py`: signed sessions, CSRF validation, and route ownership helpers.
+
+Read [AUTHENTICATION.md](AUTHENTICATION.md) before changing Google OIDC or adding LINE Login.
+
 ## Database Policy
 
 Do not push `instance/` or local `.db` / `.sqlite3` files.
@@ -85,7 +102,7 @@ Do not push `instance/` or local `.db` / `.sqlite3` files.
 Database structure should be tracked through:
 
 - SQLAlchemy models in `market_connect/models.py`.
-- Migration files in `migrations/` once migration tooling is added.
+- Migration files in `migrations/`.
 - Small documented seed files in `fixtures/` if needed.
 
 Runtime database files are environment-specific state, not source code.

@@ -128,6 +128,17 @@
             color: #ffffff;
         }
 
+        .error-msg {
+            margin-bottom: 20px;
+            padding: 12px;
+            border: 1px solid #c62828;
+            background: #fff0f0;
+            color: #c62828;
+            font-size: 0.9rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
         /* 底部返回連結 */
         .back-link {
             display: inline-block;
@@ -158,43 +169,49 @@
     <div class="register-subtitle">正在建立 <span>{{ role }}</span> 帳戶門戶</div>
     
     <div class="register-box">
+        {% if error %}
+            <div class="error-msg">{{ error }}</div>
+        {% endif %}
         <form method="POST">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             
             <div class="form-group">
                 <label>Username / 帳號</label>
-                <input type="text" name="username" class="form-control" placeholder="請設定您的登入帳號" required>
+                <input type="text" name="username" class="form-control" value="{{ form_data.username }}" placeholder="請設定您的登入帳號" autocomplete="username" minlength="3" maxlength="50" required>
             </div>
 
             <!-- 💡 將「姓」與「名」包裝成並排的網格，畫面非常俐落有型 -->
             <div class="name-row">
                 <div class="form-group">
                     <label>First Name / 名字</label>
-                    <input type="text" name="fname" class="form-control" placeholder="例：小明" required>
+                    <input type="text" name="fname" class="form-control" value="{{ form_data.fname }}" placeholder="例：小明" autocomplete="given-name" required>
                 </div>
                 <div class="form-group">
                     <label>Last Name / 姓氏</label>
-                    <input type="text" name="lname" class="form-control" placeholder="例：陳" required>
+                    <input type="text" name="lname" class="form-control" value="{{ form_data.lname }}" placeholder="例：陳" autocomplete="family-name" required>
                 </div>
             </div>
             
             <div class="form-group">
                 <label>Password / 密碼</label>
-                <input type="password" name="pw" class="form-control" placeholder="請設定密碼 (至少 8 個字元)" minlength="8" required>
+                <input type="password" name="pw" class="form-control" placeholder="請設定密碼 (至少 8 個字元)" autocomplete="new-password" minlength="8" maxlength="128" required>
             </div>
 
             <div class="form-group">
                 <label>Phone / 電話號碼</label>
-                <input type="text" name="phone" class="form-control" placeholder="例：0912345678" 
-                        pattern="[0-9]{10}" 
-                        inputmode="numeric" 
-                        maxlength="10" 
+                <input type="text" name="phone" class="form-control" value="{{ form_data.phone }}"
+                        pattern="[0-9]{10}"
+                        inputmode="numeric"
+                        maxlength="10"
                         placeholder="例：0912345678 (必須為 10 位數字)" required>
             </div>
             
             <button type="submit" class="btn-submit">確認註冊並登入</button>
         </form>
 
-        <a href="/" class="back-link">← 返回主首頁</a>
+        <a href="{{ url_for('web_auth.login_view', role=role, next=next_url) }}" class="back-link">已有帳戶？前往登入</a>
+        <a href="{{ url_for('web_auth.account', next=next_url) }}" class="back-link">選擇其他帳戶類型</a>
+        <a href="{{ url_for('web_auth.index') }}" class="back-link">返回主首頁</a>
     </div>
 
 </body>

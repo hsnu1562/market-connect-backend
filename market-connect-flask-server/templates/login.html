@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SPACIS | 登入</title>
     <!-- 引入 Miranda 網站靈魂：古典優雅的襯線字體 Playfair Display -->
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
@@ -134,6 +135,43 @@
             color: var(--accent-color);
         }
 
+        .account-link {
+            margin: 22px 0 0;
+            color: #555;
+            font-size: 0.9rem;
+            text-align: center;
+        }
+        .account-link a {
+            color: var(--text-charcoal);
+            font-weight: 700;
+        }
+
+        .divider {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin: 24px 0;
+            color: #777;
+            font-size: 0.8rem;
+        }
+        .divider::before,
+        .divider::after { content: ""; flex: 1; border-top: 1px solid #aaa; }
+
+        .google-login {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            border: 2px solid var(--border-line);
+            background: #fff;
+            color: var(--text-charcoal);
+            font-weight: 700;
+            text-align: center;
+            text-decoration: none;
+            box-sizing: border-box;
+        }
+        .google-login span { margin-right: 8px; color: #4285f4; font-family: sans-serif; }
+        .google-login:hover { background: var(--bg-paper); }
+
         @keyframes journalFadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -152,22 +190,27 @@
         {% endif %}
 
         <form method="POST">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             
             <div class="form-group">
                 <label>Username / 帳號</label>
-                <input type="text" name="username" class="form-control" placeholder="請輸入您的帳號" required>
+                <input type="text" name="username" class="form-control" value="{{ form_data.username }}" placeholder="請輸入您的帳號" autocomplete="username" required>
             </div>
             
             <div class="form-group">
                 <label>Password / 密碼</label>
-                <input type="password" name="pw" class="form-control" placeholder="請輸入您的密碼" required>
+                <input type="password" name="pw" class="form-control" placeholder="請輸入您的密碼" autocomplete="current-password" required>
             </div>
             
             <button type="submit" class="btn-submit">確認登入</button>
         </form>
 
-        <!-- 💡 自動判斷角色動態導回首頁，維持原汁原味路徑 -->
-        <a href="/" class="back-link">← 返回主首頁</a>
+        <div class="divider">或</div>
+        <a class="google-login" href="{{ url_for('web_auth.google_login', role=role, next=next_url) }}"><span>G</span>使用 Google 帳號繼續</a>
+
+        <p class="account-link">還沒有帳戶？ <a href="{{ url_for('web_auth.register', role=role, next=next_url) }}">建立 {{ role }} 帳戶</a></p>
+        <a href="{{ url_for('web_auth.account', next=next_url) }}" class="back-link">選擇其他帳戶類型</a>
+        <a href="{{ url_for('web_auth.index') }}" class="back-link">返回主首頁</a>
     </div>
 
 </body>

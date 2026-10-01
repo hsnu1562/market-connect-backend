@@ -5,9 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="探索近期可租用的市集攤位、空檔與租金。">
     <title>SPACIS | 找到下一個出攤位置</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth-dialog.css') }}">
     <style>
         :root {
             --paper: #f3efe3;
@@ -72,13 +74,13 @@
         .brand-mark {
             width: 38px;
             height: 38px;
-            display: grid;
-            place-items: center;
-            border: 2px solid var(--line);
-            background: var(--saffron);
-            font-family: 'Noto Sans TC', sans-serif;
-            font-size: 0.72rem;
-            letter-spacing: 0.08em;
+            display: block;
+        }
+
+        .brand-mark img {
+            width: 100%;
+            height: 100%;
+            display: block;
         }
 
         .nav-links {
@@ -105,6 +107,13 @@
         .nav-link.outline:hover {
             color: var(--paper-light);
             background: var(--ink);
+        }
+
+        .logout-form { margin: 0; }
+
+        .nav-button {
+            cursor: pointer;
+            font-family: inherit;
         }
 
         main {
@@ -517,35 +526,62 @@
 
         .empty-state p { margin: 0; color: var(--muted); }
 
-        .workflow {
+        .market-purpose {
             margin-bottom: 96px;
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
             border: 2px solid var(--line);
             background: var(--paper-light);
         }
 
-        .workflow-step {
-            min-height: 190px;
-            padding: 30px;
+        .purpose-copy {
+            padding: 38px;
             border-right: 2px solid var(--line);
+            background: var(--green-light);
         }
 
-        .workflow-step:last-child { border-right: 0; }
+        .purpose-copy h2 {
+            margin: 0;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: clamp(2rem, 3vw, 3.1rem);
+            line-height: 1.08;
+            letter-spacing: -0.04em;
+        }
 
-        .workflow-step span {
+        .purpose-copy p:last-child {
+            margin: 22px 0 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .behavior-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .behavior-card {
+            min-height: 230px;
+            padding: 34px;
+        }
+
+        .behavior-card:first-child { border-right: 2px solid var(--line); }
+
+        .behavior-label {
+            margin: 0;
             color: var(--coral);
-            font-family: 'Playfair Display', serif;
-            font-size: 1.3rem;
-            font-weight: 900;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
         }
 
-        .workflow-step h3 {
-            margin: 18px 0 8px;
-            font-size: 1.05rem;
+        .behavior-card h3 {
+            margin: 18px 0 10px;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 1.45rem;
+            line-height: 1.15;
         }
 
-        .workflow-step p {
+        .behavior-card p:last-child {
             margin: 0;
             color: var(--muted);
             font-size: 0.84rem;
@@ -578,6 +614,8 @@
             .stall-card,
             .stall-card.lead-card { grid-column: span 6; background: var(--paper-light); }
             .section-heading { align-items: start; flex-direction: column; }
+            .market-purpose { grid-template-columns: 1fr; }
+            .purpose-copy { border-right: 0; border-bottom: 2px solid var(--line); }
         }
 
         @media (max-width: 680px) {
@@ -613,9 +651,10 @@
             .stall-card,
             .stall-card.lead-card { grid-column: span 12; }
             .empty-state { grid-template-columns: 1fr; padding: 42px 24px; }
-            .workflow { grid-template-columns: 1fr; }
-            .workflow-step { min-height: auto; border-right: 0; border-bottom: 2px solid var(--line); }
-            .workflow-step:last-child { border-bottom: 0; }
+            .purpose-copy { padding: 32px 24px; }
+            .behavior-grid { grid-template-columns: 1fr; }
+            .behavior-card { min-height: auto; padding: 30px 24px; }
+            .behavior-card:first-child { border-right: 0; border-bottom: 2px solid var(--line); }
             .site-footer { flex-direction: column; }
         }
 
@@ -632,20 +671,22 @@
     <header class="site-header">
         <div class="topbar">
             <a href="/" class="brand" aria-label="SPACIS 首頁">
-                <span class="brand-mark">SP</span>
+                <span class="brand-mark" aria-hidden="true">
+                    <img src="{{ url_for('static', filename='favicon.svg') }}" alt="">
+                </span>
                 <span>SPACIS</span>
             </a>
             <nav class="nav-links" aria-label="主要導覽">
                 <a href="#availability" class="nav-link">找攤位</a>
-                <a href="{{ provider_url }}" class="nav-link">刊登攤位</a>
+                <a href="{{ provider_url }}" class="nav-link"{% if not current_user %} data-auth-role="Landlord" data-auth-next=""{% endif %}>刊登攤位</a>
                 {% if current_user %}
-                    {% if current_user.role == "Tenant" %}
-                        <a href="/tenant/hub/{{ current_user.id }}/" class="nav-link outline">{{ current_user.username }} · 我的帳戶</a>
-                    {% else %}
-                        <a href="/landlord/hub/{{ current_user.id }}/" class="nav-link outline">{{ current_user.username }} · 管理中心</a>
-                    {% endif %}
+                    <a href="{{ account_url }}" class="nav-link outline">{{ current_user.username }} · 我的帳戶</a>
+                    <form action="{{ url_for('web_auth.logout') }}" method="POST" class="logout-form">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="nav-link outline nav-button">登出</button>
+                    </form>
                 {% else %}
-                    <a href="/login/Tenant" class="nav-link outline">登入預約</a>
+                    <a href="{{ account_url }}" class="nav-link outline">登入 / 建立帳戶</a>
                 {% endif %}
             </nav>
         </div>
@@ -655,13 +696,13 @@
         <section class="hero" aria-labelledby="hero-title">
             <div class="hero-copy">
                 <p class="eyebrow">Market spaces, made visible</p>
-                <h1 id="hero-title">找到值得<br><em>出攤</em>的位置。</h1>
+                <h1 id="hero-title">找到值得<br><em>出攤 </em>的位置。</h1>
                 <p class="hero-lead">
-                    直接比較近期空檔、時段租金與現場設備。先看攤位，再決定登入、預約或刊登，不必從角色選單開始。
+                    將近期空檔、時段租金與現場設備放在同一個清楚的市場，讓每次出攤都有更好的判斷依據。
                 </p>
                 <div class="hero-actions">
                     <a href="#availability" class="button">查看近期空檔</a>
-                    <a href="{{ provider_url }}" class="button secondary">我有攤位要出租</a>
+                    <a href="{{ provider_url }}" class="button secondary"{% if not current_user %} data-auth-role="Landlord" data-auth-next=""{% endif %}>我有攤位要出租</a>
                 </div>
             </div>
 
@@ -692,7 +733,7 @@
             <span>近期可租攤位</span>
             <span>按小時計價</span>
             <span>即時空檔</span>
-            <span>租客與場地主雙向評價</span>
+            <span>可靠合作紀錄</span>
         </div>
 
         <section class="listings-section" id="availability" aria-labelledby="availability-title">
@@ -743,7 +784,7 @@
                                     <span class="price-label">每小時起</span>
                                     <span class="price">NT$ {{ listing.min_price }} <small>/ hr</small></span>
                                 </div>
-                                <a class="card-action" href="{{ listing.action_url }}">{{ listing.action_label }} →</a>
+                                <a class="card-action" href="{{ listing.action_url }}"{% if not current_user %} data-auth-role="Tenant" data-auth-next="{{ url_for('web_stalls.stall_list') }}"{% endif %}>{{ listing.action_label }} →</a>
                             </div>
                         </article>
                     {% endfor %}
@@ -754,26 +795,28 @@
                         <h3>目前沒有尚未預約的近期時段</h3>
                         <p>場地主可以先刊登攤位與租金；新的可租時段出現後，會直接顯示在這裡。</p>
                     </div>
-                    <a href="{{ provider_url }}" class="button">刊登第一個攤位</a>
+                    <a href="{{ provider_url }}" class="button"{% if not current_user %} data-auth-role="Landlord" data-auth-next=""{% endif %}>刊登第一個攤位</a>
                 </div>
             {% endif %}
         </section>
 
-        <section class="workflow" aria-label="預約流程">
-            <div class="workflow-step">
-                <span>01</span>
-                <h3>先比較供應</h3>
-                <p>從地點、日期、設備和每小時租金判斷是否符合本次出攤需求。</p>
+        <section class="market-purpose" aria-labelledby="purpose-title">
+            <div class="purpose-copy">
+                <p class="section-kicker">Why SPACIS</p>
+                <h2 id="purpose-title">讓每一次出攤，都從清楚開始。</h2>
+                <p>SPACIS 把分散的市集空間變成可以比較、可以信任的供應資訊，並透過雙向評價累積可靠的合作紀錄。</p>
             </div>
-            <div class="workflow-step">
-                <span>02</span>
-                <h3>選擇連續時段</h3>
-                <p>登入租客帳戶後，可以一次選取同一攤位的多個空檔並建立預約。</p>
-            </div>
-            <div class="workflow-step">
-                <span>03</span>
-                <h3>取得入場憑證</h3>
-                <p>付款流程完成後保留同一組 QR Code，方便確認訂單和現場報到。</p>
+            <div class="behavior-grid" aria-label="可靠合作行為">
+                <article class="behavior-card">
+                    <p class="behavior-label">可靠的租客</p>
+                    <h3>準時、如實、尊重場地</h3>
+                    <p>依約使用空間與設備，遵守現場規則；若計畫改變，及早通知場地主，讓下一位出攤者也能順利安排。</p>
+                </article>
+                <article class="behavior-card">
+                    <p class="behavior-label">可靠的場地主</p>
+                    <h3>資訊透明，回應一致</h3>
+                    <p>持續更新地點、設備、費用與空檔，並清楚說明使用限制。真實且一致的資訊，是長期合作的基礎。</p>
+                </article>
             </div>
         </section>
 
@@ -782,5 +825,7 @@
             <span>先看供應，再開始預約。</span>
         </footer>
     </main>
+
+    {% if not current_user %}{% include '_auth_dialog.html' %}{% endif %}
 </body>
 </html>

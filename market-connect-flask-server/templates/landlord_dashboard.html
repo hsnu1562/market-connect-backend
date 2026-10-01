@@ -139,6 +139,7 @@
     <div id="stall-form-section" class="form-section">
         <h2 id="form-title">🏗️ 填寫攤位詳細資訊</h2>
         <form method="POST">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label>📍 攤位名稱</label>
                 <input type="text" name="loc_name" placeholder="請填寫您的攤位黃金名稱..." required>

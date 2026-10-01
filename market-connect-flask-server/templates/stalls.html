@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <!-- 引入 Miranda 網站靈魂字體 -->
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth-dialog.css') }}">
     <style>
         :root {
             --bg-paper: #fcfaf2;
@@ -127,15 +128,18 @@
 
     <nav class="navbar" style="background: #161616; padding: 20px 50px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
     <!-- 根據 image_00d1fd.png 調整的商標樣式，保留跳轉租客大廳的功能 -->
-    <a href="/tenant/hub/{{ user_id }}/" class="logo" style="font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 700; font-style: italic; color: #ffffff; text-decoration: none;">
+    <a href="{% if can_book %}/tenant/hub/{{ user_id }}/{% else %}/{% endif %}" class="logo" style="font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 700; font-style: italic; color: #ffffff; text-decoration: none;">
         ✨ SPACIS
     </a>
 
-    <!-- 只保留租客資訊欄，刪除右側所有按鈕 -->
     <div class="user-info" style="display: flex; gap: 25px; align-items: center; color: #a3b1c2; font-size: 1rem; font-weight: 500;">
-        <span>👤 帳號: <b>{{ tenant_username }}</b></span>
-        <span>🏷️ 角色: <b>Tenant</b></span>
-        <span style="color: #ffb703;">⭐ 評分: <b>{{ tenant_reputation }} ★</b></span>
+        {% if can_book %}
+            <span>👤 帳號: <b>{{ tenant_username }}</b></span>
+            <span>🏷️ 角色: <b>Tenant</b></span>
+            <span style="color: #ffb703;">⭐ 評分: <b>{{ tenant_reputation }} ★</b></span>
+        {% else %}
+            <a href="{{ account_url }}" data-auth-role="Tenant" data-auth-next="{{ url_for('web_stalls.stall_list') }}" style="color: #ffffff; font-weight: 700;">登入後預約</a>
+        {% endif %}
     </div>
 </nav>
 
@@ -157,7 +161,11 @@
                     <h2 class="stall-name">{{ stall.loc_name }}</h2>
                     <div class="stall-address">📍 {{ stall.city }}{{ stall.district }}{{ stall.road }}</div>
                     <div id="availability-{{ stall.id }}"></div>
-                    <a href="/booking_page/{{ stall.id }}/{{ user_id }}/" class="booking-btn">預約此攤位</a>
+                    {% if can_book %}
+                        <a href="/booking_page/{{ stall.id }}/{{ user_id }}/" class="booking-btn">預約此攤位</a>
+                    {% else %}
+                        <a href="{{ account_url }}" class="booking-btn" data-auth-role="Tenant" data-auth-next="{{ url_for('web_stalls.stall_list') }}">登入後預約</a>
+                    {% endif %}
                 </div>
             {% endfor %}
         </div>
@@ -199,5 +207,6 @@
             }
         }
     </script>
+    {% if not can_book %}{% include '_auth_dialog.html' %}{% endif %}
 </body>
 </html>

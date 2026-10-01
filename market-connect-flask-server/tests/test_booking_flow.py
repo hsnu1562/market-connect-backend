@@ -82,7 +82,14 @@ def test_homepage_shows_available_stalls(client):
     assert b"Huashan Stall A" in response.data
     assert b"Taipei" in response.data
     assert b"NT$ 300" in response.data
-    assert b'href="/login/Tenant"' in response.data
+    assert b'href="/account/"' in response.data
+    assert b'id="auth-dialog"' in response.data
+    assert b'data-auth-role="Tenant"' in response.data
+    assert b'data-auth-role="Landlord"' in response.data
+    assert "讓每一次出攤，都從清楚開始。".encode() in response.data
+    assert "可靠的租客".encode() in response.data
+    assert "可靠的場地主".encode() in response.data
+    assert "先比較供應".encode() not in response.data
 
 
 def test_homepage_links_tenant_to_booking(app, client):
@@ -121,7 +128,7 @@ def test_complete_booking_flow(app, client):
 
     with client.session_transaction() as session:
         session["user_id"] = tenant1.id
-        session["user_role"] = "Tenant"
+        session["_csrf_token"] = "booking-test-token"
 
     response = client.get(f"/booking_page/{stall.id}/{tenant1.id}/")
     assert response.status_code == 200
@@ -129,7 +136,11 @@ def test_complete_booking_flow(app, client):
 
     response = client.post(
         "/make_booking/",
-        data={"user_id": tenant1.id, "slot_ids": [slot1.id, slot2.id]},
+        data={
+            "_csrf_token": "booking-test-token",
+            "user_id": tenant2.id,
+            "slot_ids": [slot1.id, slot2.id],
+        },
         follow_redirects=False,
     )
     with app.app_context():
@@ -146,7 +157,11 @@ def test_complete_booking_flow(app, client):
 
     response = client.post(
         "/process_payment/",
-        data={"qr_code": qr_code, "payment_method": "Credit Card"},
+        data={
+            "_csrf_token": "booking-test-token",
+            "qr_code": qr_code,
+            "payment_method": "Credit Card",
+        },
         follow_redirects=False,
     )
     assert response.status_code == 302
@@ -167,13 +182,14 @@ def test_complete_booking_flow(app, client):
 
     with client.session_transaction() as session:
         session["user_id"] = tenant2.id
-        session["user_role"] = "Tenant"
+        session["_csrf_token"] = "booking-test-token"
 
     response = client.get(f"/booking_page/{stall.id}/{tenant2.id}/")
     assert response.status_code == 200
     assert f'name="slot_ids" value="{slot1.id}"'.encode() not in response.data
     assert f'name="slot_ids" value="{slot2.id}"'.encode() not in response.data
     assert f'name="slot_ids" value="{slot3.id}"'.encode() in response.data
+    assert b'name="user_id"' not in response.data
 
 
 def test_api_booking_flow(app, client):
@@ -190,18 +206,27 @@ def test_api_booking_flow(app, client):
     assert response.status_code == 200
     assert response.get_json()["slots"][0]["id"] == slot.id
 
+    with client.session_transaction() as session:
+        session["user_id"] = tenant.id
+        session["_csrf_token"] = "api-test-token"
+
     response = client.post(
         "/api/v1/bookings",
-        json={"user_id": tenant.id, "slot_ids": [slot.id]},
+        json={"user_id": 999999, "slot_ids": [slot.id]},
+        headers={"X-CSRF-Token": "api-test-token"},
     )
     assert response.status_code == 201
     payload = response.get_json()
     assert payload["booking_count"] == 1
     qr_code = payload["qr_code"]
 
+    with app.app_context():
+        assert Booking.query.filter_by(qr_code=qr_code).one().user_id == tenant.id
+
     response = client.post(
         "/api/v1/payments",
         json={"qr_code": qr_code, "payment_method": "Credit Card"},
+        headers={"X-CSRF-Token": "api-test-token"},
     )
     assert response.status_code == 200
 

@@ -161,6 +161,8 @@
             color: var(--landlord-accent);
             border-color: var(--landlord-accent);
         }
+        .logout-form { margin-top: 50px; }
+        .logout-link { margin-top: 0; background: transparent; border: 0; cursor: pointer; font-family: inherit; }
 
         @keyframes journalFadeIn {
             from { opacity: 0; transform: translateY(20px); }
@@ -213,8 +215,10 @@
 
         </div>
 
-        <!-- 💡 底部登出返回按鈕，原汁原味動線 -->
-        <a href="/" class="logout-link">LOGOUT / 安全登出系統</a>
+        <form action="{{ url_for('web_auth.logout') }}" method="POST" class="logout-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="logout-link">LOGOUT / 安全登出系統</button>
+        </form>
     </div>
 
 </body>

@@ -5,10 +5,20 @@ services:
     plan: free
     rootDir: market-connect-flask-server
     buildCommand: pip install -r requirements.txt
-    startCommand: flask --app app init-db && gunicorn --worker-tmp-dir /dev/shm --bind 0.0.0.0:$PORT app:app
+    startCommand: flask --app app init-db && flask --app app db upgrade && gunicorn --worker-tmp-dir /dev/shm --bind 0.0.0.0:$PORT app:app
     healthCheckPath: /api/v1/health
     envVars:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
+        sync: false
+      - key: APP_ENV
+        value: production
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        sync: false
+      - key: PUBLIC_BASE_URL
         sync: false

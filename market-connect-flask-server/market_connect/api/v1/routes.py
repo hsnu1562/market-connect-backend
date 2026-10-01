@@ -3,6 +3,7 @@ from __future__ import annotations
 from flask import Blueprint, jsonify, request
 
 from ...models import Booking, Slot, Stall
+from ...security import get_current_user
 from ...services.bookings import apply_payment_to_qr, create_booking_for_slots
 
 
@@ -33,13 +34,20 @@ def list_available_slots(stall_id: int):
 
 @bp.post("/bookings")
 def create_booking():
-    payload = request.get_json(silent=True) or {}
-    user_id = payload.get("user_id")
-    slot_ids = payload.get("slot_ids", [])
-    if not user_id or not isinstance(slot_ids, list):
-        return jsonify({"error": "user_id and slot_ids are required"}), 400
+    user, error_response = _require_api_user("Tenant")
+    if error_response is not None:
+        return error_response
 
-    qr_code, created_count = create_booking_for_slots(int(user_id), [int(slot_id) for slot_id in slot_ids])
+    payload = request.get_json(silent=True) or {}
+    slot_ids = payload.get("slot_ids", [])
+    if not isinstance(slot_ids, list) or not slot_ids:
+        return jsonify({"error": "slot_ids are required"}), 400
+    try:
+        normalized_slot_ids = [int(slot_id) for slot_id in slot_ids]
+    except (TypeError, ValueError):
+        return jsonify({"error": "slot_ids must contain integers"}), 400
+
+    qr_code, created_count = create_booking_for_slots(user.id, normalized_slot_ids)
     if not created_count or qr_code is None:
         return jsonify({"error": "no available slots were booked"}), 409
 
@@ -55,9 +63,21 @@ def create_booking():
 
 @bp.get("/bookings/<qr_code>")
 def get_booking_group(qr_code: str):
+    user, error_response = _require_api_user()
+    if error_response is not None:
+        return error_response
+
     bookings = Booking.query.filter_by(qr_code=qr_code).order_by(Booking.id).all()
     if not bookings:
         return jsonify({"error": "booking not found"}), 404
+    is_tenant_owner = user.has_role("Tenant") and all(
+        booking.user_id == user.id for booking in bookings
+    )
+    is_landlord_owner = user.has_role("Landlord") and all(
+        booking.slot.stall.owner_id == user.id for booking in bookings
+    )
+    if not (is_tenant_owner or is_landlord_owner):
+        return jsonify({"error": "booking access denied"}), 403
 
     return jsonify(
         {
@@ -70,16 +90,34 @@ def get_booking_group(qr_code: str):
 
 @bp.post("/payments")
 def update_payment():
+    user, error_response = _require_api_user("Tenant")
+    if error_response is not None:
+        return error_response
+
     payload = request.get_json(silent=True) or {}
     qr_code = payload.get("qr_code")
     payment_method = payload.get("payment_method", "Cash")
     if not qr_code:
         return jsonify({"error": "qr_code is required"}), 400
+    bookings = Booking.query.filter_by(qr_code=qr_code).all()
+    if not bookings:
+        return jsonify({"error": "booking not found"}), 404
+    if any(booking.user_id != user.id for booking in bookings):
+        return jsonify({"error": "booking access denied"}), 403
 
     if not apply_payment_to_qr(qr_code, payment_method):
         return jsonify({"error": "booking not found"}), 404
 
     return jsonify({"payment_method": "Cash" if payment_method == "Cash" else "Credit Card", "qr_code": qr_code})
+
+
+def _require_api_user(required_role: str | None = None):
+    user = get_current_user()
+    if user is None:
+        return None, (jsonify({"error": "authentication required"}), 401)
+    if required_role is not None and not user.has_role(required_role):
+        return None, (jsonify({"error": "account role is not permitted"}), 403)
+    return user, None
 
 
 def _stall_payload(stall: Stall, include_slots: bool = False) -> dict:

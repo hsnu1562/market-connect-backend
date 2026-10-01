@@ -4,13 +4,14 @@ This folder contains the Flask backend for MarketConnect/Expoflow. It includes
 both browser-facing web pages and JSON API routes, so the server can be deployed
 as one self-contained Flask application.
 
-The Flask backend was rewritten from the earlier Django monolith prototype in
-`smart_market.zip`; the previous FastAPI implementation remains available in Git
-history before this migration branch.
+The Flask backend was rewritten from the earlier Django monolith prototype. The
+previous FastAPI implementation remains available on the `legacy/fastapi-api`
+branch for the existing Swagger/documentation service.
 
 It preserves the prototype's main flows:
 
-- landlord and tenant registration/login
+- local and Google OIDC registration/login
+- tenant and landlord roles on the same user account
 - landlord stall publishing
 - hourly slot pricing
 - tenant stall search
@@ -21,32 +22,55 @@ It preserves the prototype's main flows:
 
 For a detailed explanation of why HTML files live in this backend repo and how
 the folders should be maintained, read [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md).
+The import and review boundary for crawler data is documented in
+[docs/DATA_MODEL.md](docs/DATA_MODEL.md).
+The local-account and Google OIDC implementation plus the future LINE boundary
+are documented in [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
 
 ## Run Locally
 
-Recommended Conda env name: `Market_Connection`.
+Recommended Conda env name: `SPACIS`.
+
+Quick start from this folder after the initial setup:
+
+```bash
+conda run -n SPACIS python -m flask --app app run --debug --port 5001
+```
 
 If the env already exists:
 
 ```bash
-conda activate Market_Connection
+conda activate SPACIS
 pip install -r requirements.txt
 flask --app app init-db
+flask --app app db upgrade
 flask --app app seed-demo
-flask --app app run
+flask --app app run --port 5001
 ```
 
 If the env needs to be recreated:
 
 ```bash
 conda env create -f environment.yml
-conda activate Market_Connection
+conda activate SPACIS
 flask --app app init-db
+flask --app app db upgrade
 flask --app app seed-demo
-flask --app app run
+flask --app app run --port 5001
 ```
 
-Open `http://127.0.0.1:5000`.
+Open `http://127.0.0.1:5001`.
+
+## Run Tests
+
+With `SPACIS` activated and this folder as the current directory:
+
+```bash
+python -m pytest -q
+```
+
+The test suite uses temporary databases, so `init-db`, `seed-demo`, and a
+production `DATABASE_URL` are not required before running it.
 
 ## Deploy On Render
 
@@ -55,14 +79,16 @@ When connecting the repository manually, use:
 - Branch: `main`
 - Root Directory: `market-connect-flask-server`
 - Build Command: `pip install -r requirements.txt`
-- Start Command: `flask --app app init-db && gunicorn --worker-tmp-dir /dev/shm --bind 0.0.0.0:$PORT app:app`
+- Start Command: `flask --app app init-db && flask --app app db upgrade && gunicorn --worker-tmp-dir /dev/shm --bind 0.0.0.0:$PORT app:app`
 - Health Check Path: `/api/v1/health`
 
-Set a production `SECRET_KEY`. For persistent data, set `DATABASE_URL` in
-Render's Environment page to the database's Internal Database URL. Do not place
-the connection string in source code or commit it to Git. The startup command
-creates missing tables automatically. Without `DATABASE_URL`, SQLite data can be
-lost whenever Render restarts or redeploys the service.
+Set all production variables listed in [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
+For persistent data, set `DATABASE_URL` in Render's Environment page to the
+database's Internal Database URL. Do not place credentials in source code or
+commit them to Git. The startup command creates missing tables and applies
+tracked migrations automatically.
+Without `DATABASE_URL`, SQLite data can be lost whenever Render restarts or
+redeploys the service.
 
 Alternative virtualenv setup:
 
@@ -71,8 +97,9 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 flask --app app init-db
+flask --app app db upgrade
 flask --app app seed-demo
-flask --app app run
+flask --app app run --port 5001
 ```
 
 Demo accounts after `seed-demo`:
@@ -92,8 +119,8 @@ Demo accounts after `seed-demo`:
 - `templates/`: server-rendered frontend HTML files. They are frontend-facing,
   but they stay in this Flask backend repo because Flask renders them on the
   server with `render_template(...)`.
-- `static/`: future CSS, JavaScript, images, and browser assets.
-- `migrations/`: future database migrations.
+- `static/`: browser assets, currently including the replaceable MVP favicon.
+- `migrations/`: Flask-Migrate/Alembic database migrations.
 - `fixtures/`: future seed/demo data files.
 - `tests/`: smoke tests for the booking/payment flow.
 
@@ -102,13 +129,18 @@ Demo accounts after `seed-demo`:
 - `GET /api/v1/health`: service health check.
 - `GET /api/v1/stalls`: list stalls with available slots.
 - `GET /api/v1/stalls/<stall_id>/slots`: list available slots for one stall.
-- `POST /api/v1/bookings`: create a booking from JSON `user_id` and `slot_ids`.
-- `GET /api/v1/bookings/<qr_code>`: fetch one QR-code booking group.
-- `POST /api/v1/payments`: update payment state from JSON `qr_code` and `payment_method`.
+- `POST /api/v1/bookings`: create a booking for the signed-in tenant from JSON `slot_ids`.
+- `GET /api/v1/bookings/<qr_code>`: fetch one accessible QR-code booking group.
+- `POST /api/v1/payments`: update the signed-in tenant's booking state from JSON `qr_code` and `payment_method`.
+
+State-changing API calls require the signed-in Flask session and an
+`X-CSRF-Token` header. Read-only stall routes remain public.
 
 ## Notes
 
-- This is still a prototype, not production authentication or payment code.
+- Local username/password and Google OIDC login are implemented. LINE login,
+  password reset, provider verification, and payment-provider integration are
+  not implemented yet.
 - SQLite is used by default at `instance/market_connect.db` and is local-only.
 - `Booking.slot_id` is unique to prevent double-booking the same slot.
 - Web routes and `/api/v1` routes intentionally live in the same backend repo so

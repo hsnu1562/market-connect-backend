@@ -93,7 +93,9 @@
 <div id="reviewModal" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 2000;">
     <div style="background: white; padding: 40px; border: 3px solid #161616; width: 400px;">
         <h3 style="font-family: 'Playfair Display', serif;">給予攤主評價</h3>
-        <form action="/submit_review/" method="POST">            <input type="hidden" name="booking_id" id="modal-booking-id">
+        <form action="/submit_review/" method="POST">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="booking_id" id="modal-booking-id">
             <label style="display:block; margin-bottom:5px;">評分：</label>
             <select name="rating" style="width:100%; padding: 10px; margin-bottom: 15px; border: 2px solid #161616;">
                 <option value="5">⭐⭐⭐⭐⭐ 5星 - 非常完美</option>

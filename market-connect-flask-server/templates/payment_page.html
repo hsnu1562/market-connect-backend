@@ -58,7 +58,9 @@
         <div class="summary-row total-row"><span>總計</span> <span>${{ total_price }}</span></div>
     </div>
 
-    <form action="/process_payment/" method="POST">        <input type="hidden" name="qr_code" value="{{ qr_code }}">
+    <form action="/process_payment/" method="POST">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="qr_code" value="{{ qr_code }}">
         
         <div class="payment-methods-grid">
             <div class="method-card selected" id="card-method" onclick="togglePayment('Credit Card')">

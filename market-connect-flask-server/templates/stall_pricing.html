@@ -164,6 +164,7 @@
     </p>
 
     <form method="POST" id="main-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
         
         <div class="layout">
             <div class="side">

@@ -139,6 +139,10 @@
         .btn-sub { background: transparent; color: var(--text-charcoal); }
         .btn-sub:hover { background: var(--text-charcoal); color: var(--bg-paper); }
 
+        .logout-form { margin: 34px 0 0; text-align: center; }
+        .logout-button { background: transparent; border: 0; border-bottom: 1px solid var(--text-charcoal); color: var(--text-charcoal); cursor: pointer; font: inherit; font-size: 0.9rem; font-weight: 700; letter-spacing: 1px; padding: 0 0 2px; }
+        .logout-button:hover { border-color: var(--tenant-accent); color: var(--tenant-accent); }
+
         @keyframes journalFadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -184,6 +188,10 @@
             </div>
 
         </div>
+        <form action="{{ url_for('web_auth.logout') }}" method="POST" class="logout-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="logout-button">LOGOUT / 安全登出系統</button>
+        </form>
     </div>
 
 </body>
