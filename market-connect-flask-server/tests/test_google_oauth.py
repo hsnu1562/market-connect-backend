@@ -123,10 +123,13 @@ def test_google_callback_creates_identity_role_and_permanent_session(app, client
     response = client.get("/auth/google/callback")
 
     assert response.status_code == 302
+    assert response.headers["Location"].startswith("/account/profile")
     with app.app_context():
         user = User.query.one()
         identity = AuthIdentity.query.one()
         assert user.password_hash is None
+        assert user.profile_completed_at is None
+        assert user.needs_profile_completion is True
         assert user.has_role("Tenant")
         assert identity.user_id == user.id
         assert identity.provider == "google"
@@ -138,6 +141,96 @@ def test_google_callback_creates_identity_role_and_permanent_session(app, client
         assert flask_session["_permanent"] is True
         assert "_oauth_requested_role" not in flask_session
         assert "_oauth_next_url" not in flask_session
+
+
+def test_first_google_login_collects_profile_then_returns_to_intended_page(
+    app, client, monkeypatch
+):
+    monkeypatch.setattr(
+        oauth.google,
+        "authorize_access_token",
+        lambda: {"userinfo": _google_userinfo()},
+    )
+    _set_oauth_context(client, "Tenant", "/stalls/")
+
+    callback = client.get("/auth/google/callback")
+    profile_url = callback.headers["Location"]
+    profile_page = client.get(profile_url)
+
+    assert profile_page.status_code == 200
+    assert b"vendor@example.com" in profile_page.data
+    assert "不會發送 OTP".encode() in profile_page.data
+
+    with client.session_transaction() as flask_session:
+        csrf_token = flask_session["_csrf_token"]
+    response = client.post(
+        profile_url,
+        data={
+            "_csrf_token": csrf_token,
+            "role": "Tenant",
+            "next": "/stalls/",
+            "first_name": "小明",
+            "last_name": "陳",
+            "phone_number": "0912 345 678",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/stalls/")
+    with app.app_context():
+        user = User.query.one()
+        assert user.first_name == "小明"
+        assert user.last_name == "陳"
+        assert user.phone_number == "0912 345 678"
+        assert user.profile_completed_at is not None
+        assert user.needs_profile_completion is False
+
+
+def test_profile_rejects_invalid_optional_phone(app, client, monkeypatch):
+    monkeypatch.setattr(
+        oauth.google,
+        "authorize_access_token",
+        lambda: {"userinfo": _google_userinfo()},
+    )
+    _set_oauth_context(client, "Landlord")
+    profile_url = client.get("/auth/google/callback").headers["Location"]
+    client.get(profile_url)
+    with client.session_transaction() as flask_session:
+        csrf_token = flask_session["_csrf_token"]
+
+    response = client.post(
+        profile_url,
+        data={
+            "_csrf_token": csrf_token,
+            "role": "Landlord",
+            "first_name": "Market",
+            "last_name": "Vendor",
+            "phone_number": "not-a-phone",
+        },
+    )
+
+    assert response.status_code == 200
+    assert "請輸入有效的聯絡電話".encode() in response.data
+    with app.app_context():
+        assert User.query.one().profile_completed_at is None
+
+
+def test_incomplete_google_profile_cannot_open_protected_tools(app, client, monkeypatch):
+    monkeypatch.setattr(
+        oauth.google,
+        "authorize_access_token",
+        lambda: {"userinfo": _google_userinfo()},
+    )
+    _set_oauth_context(client, "Tenant")
+    client.get("/auth/google/callback")
+    with app.app_context():
+        user_id = User.query.one().id
+
+    response = client.get(f"/tenant/hub/{user_id}/")
+
+    assert response.status_code == 302
+    assert response.headers["Location"].startswith("/account/profile")
 
 
 def test_existing_google_identity_gains_second_role_without_duplicate_user(

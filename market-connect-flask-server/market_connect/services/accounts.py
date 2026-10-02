@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import re
+from datetime import UTC, datetime
 
 from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from ..extensions import db
@@ -18,6 +19,10 @@ _PHONE_PATTERN = re.compile(r"^\+?[0-9][0-9 ()-]{6,19}$")
 
 class RegistrationError(ValueError):
     """Raised when a registration form cannot create a valid account."""
+
+
+class ProfileError(ValueError):
+    """Raised when account profile data is incomplete or invalid."""
 
 
 def require_valid_role(role: str) -> str:
@@ -54,6 +59,7 @@ def register_local_user(
         last_name=last_name,
         phone_number=phone_number,
         role=role,
+        profile_completed_at=datetime.now(UTC),
     )
     ensure_user_role(user, role)
     db.session.add(user)
@@ -62,6 +68,31 @@ def register_local_user(
     except IntegrityError as error:
         db.session.rollback()
         raise RegistrationError("此帳號名稱已被使用，請選擇其他帳號。") from error
+    return user
+
+
+def update_user_profile(
+    user: User,
+    *,
+    first_name: str,
+    last_name: str,
+    phone_number: str,
+) -> User:
+    """Validate and persist the personal details collected after Google login."""
+
+    try:
+        user.first_name = _clean_name(first_name, "名字")
+        user.last_name = _clean_name(last_name, "姓氏")
+        user.phone_number = _clean_optional_phone_number(phone_number)
+    except RegistrationError as error:
+        raise ProfileError(str(error)) from error
+
+    user.profile_completed_at = datetime.now(UTC)
+    try:
+        db.session.commit()
+    except SQLAlchemyError as error:
+        db.session.rollback()
+        raise ProfileError("個人資料暫時無法儲存，請稍後再試。") from error
     return user
 
 
@@ -121,6 +152,13 @@ def _clean_phone_number(value: str) -> str:
     if not _PHONE_PATTERN.fullmatch(phone_number):
         raise RegistrationError("請輸入有效的聯絡電話。")
     return phone_number
+
+
+def _clean_optional_phone_number(value: str) -> str | None:
+    phone_number = value.strip() if isinstance(value, str) else ""
+    if not phone_number:
+        return None
+    return _clean_phone_number(phone_number)
 
 
 def _validate_password(value: str) -> None:

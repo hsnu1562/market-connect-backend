@@ -1,8 +1,12 @@
 # SPACIS Authentication
 
-SPACIS supports local username/password accounts and Google OpenID Connect
-(OIDC). Stall information is public. Authentication is required only when a
-visitor reserves a stall, publishes a stall, or opens account-owned records.
+SPACIS uses Google OpenID Connect (OIDC) as its production login method. Stall
+information is public. Authentication is required only when a visitor reserves
+a stall, publishes a stall, or opens account-owned records.
+
+After the first successful Google callback, the user must complete a profile
+sheet before entering protected tools. First and last names are required. A
+phone number is optional, unverified, and never accepted as a login method.
 
 One user can hold both roles:
 
@@ -16,15 +20,15 @@ authentication. It does not create a second user.
 
 ```text
 market_connect/
-  web/auth.py                 local and Google browser routes
-  services/accounts.py       local credentials and role membership
+  web/auth.py                 Google, profile, and optional local browser routes
+  services/accounts.py       profile validation and role membership
   services/identities.py     external identity find-or-create transaction
   security.py                session, CSRF, and authorization helpers
   models.py                  User, UserRole, and AuthIdentity
   extensions.py              SQLAlchemy, Flask-Migrate, and Authlib
 migrations/                  tracked Alembic migrations
-templates/account.html       role-aware account entry
-templates/login.html         local and Google login UI
+templates/account.html       Google-only role-aware account entry
+templates/profile_setup.html first-login and profile editing sheet
 ```
 
 The sibling `market-connect-api` checkout is the frozen FastAPI documentation
@@ -33,10 +37,11 @@ service. Do not implement Flask authentication there.
 ## Routes
 
 - `GET /account/`: select or activate tenant/provider tools.
-- `GET, POST /register/<role>`: create a local account.
-- `GET, POST /login/<role>`: sign in locally and activate the selected role.
+- `GET, POST /register/<role>`: optional local development registration; disabled by default.
+- `GET, POST /login/<role>`: optional local development login; disabled by default.
 - `GET /auth/google/login?role=<role>`: begin Google authorization.
 - `GET /auth/google/callback`: validate OIDC identity and create the session.
+- `GET, POST /account/profile`: complete or edit the SPACIS profile.
 - `POST /account/roles/<role>`: add a second role to a signed-in account.
 - `POST /logout`: clear the SPACIS session.
 
@@ -44,9 +49,10 @@ Google logout does not sign the user out of Google globally.
 
 ## Identity Data
 
-`user` stores the SPACIS profile. `password_hash` is null for Google-only
-accounts. The original `role` column remains as a primary/legacy role so
-existing data and templates remain compatible.
+`user` stores the SPACIS profile. `profile_completed_at` is null until a Google
+user submits the required profile sheet. `password_hash` is null for
+Google-only accounts. The original `role` column remains as a primary/legacy
+role so existing data and templates remain compatible.
 
 `user_role` stores all account roles with a composite primary key of
 `(user_id, role)`.
@@ -78,6 +84,7 @@ GOOGLE_CLIENT_ID=<Google-web-client-ID>
 GOOGLE_CLIENT_SECRET=<Google-web-client-secret>
 GOOGLE_REDIRECT_URI=http://localhost:5001/auth/google/callback
 PUBLIC_BASE_URL=http://localhost:5001
+LOCAL_AUTH_ENABLED=false
 ```
 
 `SECRET_KEY` must stay unchanged across restarts because OAuth state is stored
@@ -175,12 +182,13 @@ For an existing Blueprint service, variables marked `sync: false` in
 
 ## Database Migration
 
-The initial OAuth migration:
+The tracked authentication migrations:
 
 - makes `user.password_hash` nullable for Google-only users;
 - adds account status and profile timestamps;
 - creates `user_role` and backfills every existing user's current role;
 - creates `auth_identity` with a provider/subject uniqueness constraint.
+- adds `profile_completed_at` and marks existing non-Google accounts complete.
 
 Run `init-db` before `db upgrade` during this transitional migration. The
 tracked migration handles both the existing PostgreSQL schema and a fresh local
@@ -205,6 +213,10 @@ depend on Google connectivity.
 - Only verified identities containing `sub`, `email`, and
   `email_verified=true` are accepted.
 - Sessions contain only the internal `user_id` plus Flask's permanence marker.
+- Incomplete Google profiles are redirected to `/account/profile` before any
+  protected tenant or provider workflow.
+- Phone numbers are optional contact data. They are not verified identities and
+  cannot be used to authenticate.
 - Role membership never bypasses booking or stall ownership checks.
 - Accounts are not merged by email or display name.
 - Linking Google or LINE to an existing local account requires a future,

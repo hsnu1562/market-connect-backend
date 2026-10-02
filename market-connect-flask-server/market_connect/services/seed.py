@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from werkzeug.security import generate_password_hash
 
@@ -19,6 +19,7 @@ def seed_demo_data() -> None:
         last_name="One",
         phone_number="0912-000-001",
         role="Landlord",
+        profile_completed_at=datetime.now(UTC),
     )
     tenant = User(
         username="tenant1",
@@ -27,6 +28,7 @@ def seed_demo_data() -> None:
         last_name="One",
         phone_number="0912-000-002",
         role="Tenant",
+        profile_completed_at=datetime.now(UTC),
     )
     stall = Stall(
         owner=landlord,

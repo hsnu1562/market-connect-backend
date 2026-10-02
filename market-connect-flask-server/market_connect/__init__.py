@@ -62,6 +62,7 @@ def create_app(config: dict | None = None) -> Flask:
         GOOGLE_CLIENT_SECRET=os.environ.get("GOOGLE_CLIENT_SECRET"),
         GOOGLE_REDIRECT_URI=os.environ.get("GOOGLE_REDIRECT_URI"),
         PUBLIC_BASE_URL=os.environ.get("PUBLIC_BASE_URL", "http://localhost:5001"),
+        LOCAL_AUTH_ENABLED=_env_flag("LOCAL_AUTH_ENABLED"),
         PERMANENT_SESSION_LIFETIME=timedelta(days=7),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",

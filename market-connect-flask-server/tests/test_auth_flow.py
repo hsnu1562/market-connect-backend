@@ -14,6 +14,7 @@ def app():
             "TESTING": True,
             "SECRET_KEY": "test-secret",
             "SQLALCHEMY_DATABASE_URI": "sqlite:///:memory:",
+            "LOCAL_AUTH_ENABLED": True,
         }
     )
     with app.app_context():
@@ -32,7 +33,7 @@ def _set_csrf_token(client, token: str = "test-csrf-token") -> str:
     return token
 
 
-def test_account_entry_exposes_registration_and_login(client):
+def test_account_entry_exposes_local_auth_only_when_enabled(client):
     response = client.get("/account/?intent=landlord")
 
     assert response.status_code == 200
@@ -42,6 +43,19 @@ def test_account_entry_exposes_registration_and_login(client):
     assert b"/login/Tenant" in response.data
     assert b"/register/Landlord" in response.data
     assert b"/login/Landlord" in response.data
+
+
+def test_google_only_account_hides_and_disables_local_auth(app, client):
+    app.config["LOCAL_AUTH_ENABLED"] = False
+
+    response = client.get("/account/?intent=tenant")
+
+    assert response.status_code == 200
+    assert "使用 Google 登入 / 註冊".encode() in response.data
+    assert b"/register/Tenant" not in response.data
+    assert b"/login/Tenant" not in response.data
+    assert client.get("/register/Tenant").status_code == 302
+    assert client.get("/login/Tenant").status_code == 302
 
 
 def test_registration_login_and_logout_use_the_user_table(app, client):
@@ -64,6 +78,7 @@ def test_registration_login_and_logout_use_the_user_table(app, client):
         user = User.query.filter_by(username="market_renter").one()
         user_id = user.id
         assert user.role == "Tenant"
+        assert user.profile_completed_at is not None
         assert check_password_hash(user.password_hash, "a-secure-password")
 
     assert response.headers["Location"].endswith(f"/tenant/hub/{user_id}/")

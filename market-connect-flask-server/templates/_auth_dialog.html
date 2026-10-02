@@ -3,11 +3,7 @@
     id="auth-dialog"
     aria-labelledby="auth-dialog-title"
     data-tenant-google="{{ url_for('web_auth.google_login', role='Tenant') }}"
-    data-tenant-login="{{ url_for('web_auth.login_view', role='Tenant') }}"
-    data-tenant-register="{{ url_for('web_auth.register', role='Tenant') }}"
     data-landlord-google="{{ url_for('web_auth.google_login', role='Landlord') }}"
-    data-landlord-login="{{ url_for('web_auth.login_view', role='Landlord') }}"
-    data-landlord-register="{{ url_for('web_auth.register', role='Landlord') }}"
 >
     <div class="auth-dialog-inner">
         <div class="auth-dialog-topline">
@@ -19,10 +15,9 @@
         <h2 id="auth-dialog-title">登入後預約</h2>
         <p class="auth-dialog-copy" id="auth-dialog-copy">攤位資訊保持公開；送出預約時才需要帳戶。</p>
         <div class="auth-dialog-actions">
-            <a class="auth-dialog-action primary google" id="auth-google-link" href="#"><span>G</span>使用 Google 帳號繼續</a>
-            <a class="auth-dialog-action" id="auth-local-link" href="#">使用帳號密碼登入</a>
-            <a class="auth-dialog-action" id="auth-register-link" href="#">建立 SPACIS 帳戶</a>
+            <a class="auth-dialog-action primary google" id="auth-google-link" href="#"><span>G</span>使用 Google 登入 / 註冊</a>
         </div>
+        <p class="auth-dialog-footnote">首次登入後會請你補充姓名與選填聯絡電話。</p>
     </div>
 </dialog>
 <script src="{{ url_for('static', filename='auth-dialog.js') }}"></script>

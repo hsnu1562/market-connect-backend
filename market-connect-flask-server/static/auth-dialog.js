@@ -4,15 +4,11 @@ if (authDialog) {
     const authRoutes = {
         Tenant: {
             google: authDialog.dataset.tenantGoogle,
-            login: authDialog.dataset.tenantLogin,
-            register: authDialog.dataset.tenantRegister,
             title: "登入後預約",
             copy: "攤位資訊保持公開；送出預約時才需要帳戶。",
         },
         Landlord: {
             google: authDialog.dataset.landlordGoogle,
-            login: authDialog.dataset.landlordLogin,
-            register: authDialog.dataset.landlordRegister,
             title: "登入後刊登攤位",
             copy: "瀏覽不需登入；建立攤位與出租時段時才需要帳戶。",
         },
@@ -35,8 +31,6 @@ if (authDialog) {
             document.getElementById("auth-dialog-title").textContent = route.title;
             document.getElementById("auth-dialog-copy").textContent = route.copy;
             document.getElementById("auth-google-link").href = authUrl(route.google, nextPath);
-            document.getElementById("auth-local-link").href = authUrl(route.login, nextPath);
-            document.getElementById("auth-register-link").href = authUrl(route.register, nextPath);
             authDialog.showModal();
         });
     });

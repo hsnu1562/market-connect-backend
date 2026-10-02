@@ -131,6 +131,23 @@
             font-weight: 700;
         }
 
+        .signin-note {
+            margin: 26px 0 0;
+            padding: 18px 20px;
+            border-left: 4px solid var(--ink);
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        .profile-link {
+            display: inline-block;
+            margin-top: 24px;
+            color: var(--ink);
+            font-weight: 700;
+            text-underline-offset: 4px;
+        }
+
         .return-link {
             display: inline-block;
             margin-top: 42px;
@@ -150,8 +167,8 @@
 <body>
     <main class="shell">
         <p class="eyebrow">SPACIS Account</p>
-        <h1>選擇你的出攤方式</h1>
-        <p class="intro">攤位資訊可以直接瀏覽；預約或刊登時再登入即可。同一個帳戶可以同時使用租客與出租方功能。</p>
+        <h1>一個 Google 帳戶，兩種使用方式</h1>
+        <p class="intro">攤位資訊可以直接瀏覽；預約或刊登時再登入即可。首次登入後只需補充基本聯絡資料，同一個帳戶也能同時使用租客與出租方功能。</p>
 
         {% if oauth_error %}
             <div class="error-msg" role="alert">Google 登入失敗，請重新嘗試。</div>
@@ -174,9 +191,11 @@
                             </form>
                         {% endif %}
                     {% else %}
-                        <a class="button primary" href="{{ url_for('web_auth.register', role='Tenant', next=next_url) }}">建立租客帳戶</a>
-                        <a class="button" href="{{ url_for('web_auth.login_view', role='Tenant', next=next_url) }}">帳號密碼登入</a>
-                        <a class="button google" href="{{ url_for('web_auth.google_login', role='Tenant', next=next_url) }}"><span>G</span>使用 Google 帳號繼續</a>
+                        <a class="button primary google" href="{{ url_for('web_auth.google_login', role='Tenant', next=next_url) }}"><span>G</span>使用 Google 登入 / 註冊</a>
+                        {% if config.LOCAL_AUTH_ENABLED %}
+                            <a class="button" href="{{ url_for('web_auth.login_view', role='Tenant', next=next_url) }}">開發用帳號登入</a>
+                            <a class="button" href="{{ url_for('web_auth.register', role='Tenant', next=next_url) }}">建立開發用帳號</a>
+                        {% endif %}
                     {% endif %}
                 </div>
             </article>
@@ -197,13 +216,21 @@
                             </form>
                         {% endif %}
                     {% else %}
-                        <a class="button primary" href="{{ url_for('web_auth.register', role='Landlord', next=next_url) }}">建立出租方帳戶</a>
-                        <a class="button" href="{{ url_for('web_auth.login_view', role='Landlord', next=next_url) }}">帳號密碼登入</a>
-                        <a class="button google" href="{{ url_for('web_auth.google_login', role='Landlord', next=next_url) }}"><span>G</span>使用 Google 帳號繼續</a>
+                        <a class="button primary google" href="{{ url_for('web_auth.google_login', role='Landlord', next=next_url) }}"><span>G</span>使用 Google 登入 / 註冊</a>
+                        {% if config.LOCAL_AUTH_ENABLED %}
+                            <a class="button" href="{{ url_for('web_auth.login_view', role='Landlord', next=next_url) }}">開發用帳號登入</a>
+                            <a class="button" href="{{ url_for('web_auth.register', role='Landlord', next=next_url) }}">建立開發用帳號</a>
+                        {% endif %}
                     {% endif %}
                 </div>
             </article>
         </section>
+
+        {% if current_user %}
+            <a class="profile-link" href="{{ url_for('web_auth.profile_setup') }}">編輯個人資料</a>
+        {% else %}
+            <p class="signin-note">目前只提供 Google 登入。SPACIS 不會儲存 Google 密碼；電話僅作為選填聯絡資料，尚未經 OTP 驗證，也不會用於登入。</p>
+        {% endif %}
 
         <a class="return-link" href="{{ url_for('web_auth.index') }}">返回 SPACIS 首頁</a>
     </main>

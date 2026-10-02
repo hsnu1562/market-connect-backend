@@ -76,6 +76,14 @@
     font-family: sans-serif;
 }
 
+.auth-dialog-footnote {
+    margin: 16px 0 0;
+    color: var(--muted, #67685f);
+    font-size: 0.82rem;
+    line-height: 1.6;
+    text-align: center;
+}
+
 @media (max-width: 520px) {
     .auth-dialog-inner { padding: 26px 22px; }
 }

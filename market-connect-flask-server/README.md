@@ -10,7 +10,7 @@ branch for the existing Swagger/documentation service.
 
 It preserves the prototype's main flows:
 
-- local and Google OIDC registration/login
+- Google OIDC login with required first-login profile setup
 - tenant and landlord roles on the same user account
 - landlord stall publishing
 - hourly slot pricing
@@ -102,7 +102,8 @@ flask --app app seed-demo
 flask --app app run --port 5001
 ```
 
-Demo accounts after `seed-demo`:
+Demo accounts after `seed-demo` are available only when
+`LOCAL_AUTH_ENABLED=true`:
 
 - Tenant: `tenant1` / `tenant1_password`
 - Landlord: `landlord1` / `landlord1_password`
@@ -138,9 +139,10 @@ State-changing API calls require the signed-in Flask session and an
 
 ## Notes
 
-- Local username/password and Google OIDC login are implemented. LINE login,
-  password reset, provider verification, and payment-provider integration are
-  not implemented yet.
+- Google OIDC is the only production login method. Local username/password
+  routes are disabled unless `LOCAL_AUTH_ENABLED=true`; use that switch only
+  for local demo testing. LINE login, phone OTP, provider verification, and
+  payment-provider integration are not implemented yet.
 - SQLite is used by default at `instance/market_connect.db` and is local-only.
 - `Booking.slot_id` is unique to prevent double-booking the same slot.
 - Web routes and `/api/v1` routes intentionally live in the same backend repo so

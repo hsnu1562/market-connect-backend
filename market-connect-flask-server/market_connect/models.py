@@ -31,6 +31,7 @@ class User(db.Model):
         server_default=db.func.now(),
         nullable=False,
     )
+    profile_completed_at = db.Column(db.DateTime)
 
     stalls = db.relationship("Stall", back_populates="owner", cascade="all, delete-orphan")
     bookings = db.relationship("Booking", back_populates="user", cascade="all, delete-orphan")
@@ -59,6 +60,12 @@ class User(db.Model):
 
     def has_role(self, role: str) -> bool:
         return role in self.role_names
+
+    @property
+    def needs_profile_completion(self) -> bool:
+        return self.profile_completed_at is None and any(
+            identity.provider == "google" for identity in self.auth_identities
+        )
 
     def __repr__(self) -> str:
         return f"<User {self.username} ({', '.join(sorted(self.role_names))})>"

@@ -28,10 +28,12 @@ from ..security import (
 )
 from ..services.accounts import (
     ALLOWED_ROLES,
+    ProfileError,
     RegistrationError,
     authenticate_local_user,
     ensure_user_role,
     register_local_user,
+    update_user_profile,
 )
 from ..services.identities import IdentityError, find_or_create_google_user
 
@@ -116,6 +118,14 @@ def account():
     intent = request.args.get("intent", "").lower()
     if intent not in {"", "tenant", "landlord"}:
         intent = ""
+    if current_user is not None and current_user.needs_profile_completion:
+        return redirect(
+            url_for(
+                "web_auth.profile_setup",
+                role=current_user.role,
+                next=safe_next_url(request.args.get("next")) or "",
+            )
+        )
     return render_template(
         "account.html",
         intent=intent,
@@ -193,18 +203,82 @@ def google_callback():
 
     sign_in(user)
     current_app.logger.info("Google login succeeded for user_id=%s", user.id)
-    return redirect(next_url or _dashboard_url(user, role))
+    destination = next_url or _dashboard_url(user, role)
+    if user.needs_profile_completion:
+        return redirect(
+            url_for(
+                "web_auth.profile_setup",
+                role=role,
+                next=destination,
+            )
+        )
+    return redirect(destination)
+
+
+@bp.route("/account/profile", methods=["GET", "POST"])
+@bp.route("/account/profile/", methods=["GET", "POST"])
+def profile_setup():
+    user = get_current_user()
+    if user is None:
+        return redirect(
+            url_for(
+                "web_auth.account",
+                next=safe_next_url(request.values.get("next")) or "",
+            )
+        )
+
+    next_url = safe_next_url(request.values.get("next"))
+    role = request.values.get("role", "")
+    if role not in ALLOWED_ROLES or not user.has_role(role):
+        role = user.role
+
+    google_identity = next(
+        (identity for identity in user.auth_identities if identity.provider == "google"),
+        None,
+    )
+    form_data = {
+        "first_name": user.first_name or "",
+        "last_name": user.last_name or "",
+        "phone_number": user.phone_number or "",
+    }
+    error = ""
+    if request.method == "POST":
+        form_data = {
+            key: request.form.get(key, "").strip()
+            for key in form_data
+        }
+        try:
+            update_user_profile(user, **form_data)
+        except ProfileError as exc:
+            error = str(exc)
+        else:
+            return redirect(next_url or _dashboard_url(user, role))
+
+    return render_template(
+        "profile_setup.html",
+        current_user=user,
+        google_email=google_identity.email if google_identity else "",
+        role=role,
+        next_url=next_url or "",
+        form_data=form_data,
+        error=error,
+        is_first_setup=user.profile_completed_at is None,
+    )
 
 
 @bp.route("/register/<role>", methods=["GET", "POST"])
 @bp.route("/register/<role>/", methods=["GET", "POST"])
 def register(role: str):
     role = _role_or_404(role)
+    next_url = safe_next_url(request.args.get("next"))
+    if not current_app.config["LOCAL_AUTH_ENABLED"]:
+        return redirect(
+            url_for("web_auth.account", intent=role.lower(), next=next_url or "")
+        )
     current_user = get_current_user()
     if current_user is not None:
         return redirect(_dashboard_url(current_user, role))
 
-    next_url = safe_next_url(request.args.get("next"))
     form_data = {"username": "", "fname": "", "lname": "", "phone": ""}
     error = ""
     if request.method == "POST":
@@ -237,11 +311,15 @@ def register(role: str):
 @bp.route("/login/<role>/", methods=["GET", "POST"])
 def login_view(role: str):
     role = _role_or_404(role)
+    next_url = safe_next_url(request.args.get("next"))
+    if not current_app.config["LOCAL_AUTH_ENABLED"]:
+        return redirect(
+            url_for("web_auth.account", intent=role.lower(), next=next_url or "")
+        )
     current_user = get_current_user()
     if current_user is not None:
         return redirect(_dashboard_url(current_user, role))
 
-    next_url = safe_next_url(request.args.get("next"))
     form_data = {"username": ""}
     error = ""
     if request.method == "POST":
