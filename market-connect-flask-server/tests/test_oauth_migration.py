@@ -47,6 +47,58 @@ def test_initial_migration_upgrades_legacy_user_schema(tmp_path):
             connection.execute(
                 text(
                     """
+                    CREATE TABLE stall (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        owner_id INTEGER NOT NULL,
+                        loc_name VARCHAR(100) NOT NULL,
+                        city VARCHAR(20) NOT NULL,
+                        district VARCHAR(20) NOT NULL,
+                        road VARCHAR(50) NOT NULL,
+                        address_detail VARCHAR(100) NOT NULL,
+                        facilities TEXT,
+                        FOREIGN KEY(owner_id) REFERENCES "user" (id)
+                    )
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE slot (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        stall_id INTEGER NOT NULL,
+                        date DATE NOT NULL,
+                        time INTEGER NOT NULL,
+                        price INTEGER NOT NULL,
+                        FOREIGN KEY(stall_id) REFERENCES stall (id)
+                    )
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO stall (
+                        id, owner_id, loc_name, city, district, road,
+                        address_detail, facilities
+                    ) VALUES (
+                        1, 1, 'Legacy Stall', 'Taipei', 'Datong', 'Dihua St',
+                        'No. 1', 'Power'
+                    )
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO slot (id, stall_id, date, time, price)
+                    VALUES (1, 1, '2026-10-15', 8, 300)
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
                     INSERT INTO "user" (
                         id, username, password_hash, first_name, last_name,
                         phone_number, role, reputation_score
@@ -80,6 +132,19 @@ def test_initial_migration_upgrades_legacy_user_schema(tmp_path):
             text('SELECT profile_completed_at FROM "user" WHERE id = 1')
         ).scalar_one()
         assert profile_completed_at is not None
+        stall_policy = db.session.execute(
+            text(
+                """
+                SELECT environment_type, booking_mode, minimum_booking_hours
+                FROM stall WHERE id = 1
+                """
+            )
+        ).one()
+        assert stall_policy == ("unspecified", "hourly", 1)
+        duration_hours = db.session.execute(
+            text("SELECT duration_hours FROM slot WHERE id = 1")
+        ).scalar_one()
+        assert duration_hours == 1
 
 
 def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
@@ -90,4 +155,13 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
         upgrade(directory=str(MIGRATIONS_DIR))
 
         revision = db.session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        assert revision == "20261002_03"
+        assert revision == "20261002_04"
+        inspector = inspect(db.engine)
+        stall_columns = {column["name"] for column in inspector.get_columns("stall")}
+        slot_columns = {column["name"] for column in inspector.get_columns("slot")}
+        assert {
+            "environment_type",
+            "booking_mode",
+            "minimum_booking_hours",
+        }.issubset(stall_columns)
+        assert "duration_hours" in slot_columns

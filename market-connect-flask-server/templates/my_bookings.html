@@ -72,7 +72,7 @@
 
                 <div><span class="label">檔期時段</span>
                     {% for slot in group.slots %}
-                        <span class="slot-pill">{{ slot.date|date("M d, Y") }} | {{ slot.time }}:00</span>
+                        <span class="slot-pill">{{ slot.date|date("M d, Y") }} | {{ slot.time }}:00–{{ slot.time + slot.duration_hours }}:00</span>
                     {% endfor %}
                 </div>
                 

@@ -1,14 +1,20 @@
 from __future__ import annotations
 
-import json
 from collections import OrderedDict
+from datetime import date
 
-from flask import Blueprint, abort, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 
 from ..extensions import db
 from ..models import Booking, Review, Slot, Stall, User
 from ..security import get_current_user, login_required, require_current_user_id
-from ..services.bookings import apply_payment_to_qr, confirm_booking_payment, create_booking_for_slots
+from ..services.bookings import (
+    BookingSelectionError,
+    apply_payment_to_qr,
+    confirm_booking_payment,
+    create_booking_for_slots,
+    filter_bookable_slots,
+)
 from .utils import get_or_404
 
 
@@ -19,22 +25,41 @@ bp = Blueprint("web_stalls", __name__)
 def stall_list():
     tenant = get_current_user()
     can_book = tenant is not None and tenant.has_role("Tenant")
-    stalls = Stall.query.order_by(Stall.loc_name).all()
+    stalls = Stall.query.order_by(Stall.city, Stall.district, Stall.loc_name).all()
+    available_stalls = []
     stalls_data = []
+    locations = {}
     for stall in stalls:
-        stall.available_slots = (
+        available_slots = (
             Slot.query.outerjoin(Booking)
-            .filter(Slot.stall_id == stall.id, Booking.id.is_(None))
+            .filter(
+                Slot.stall_id == stall.id,
+                Booking.id.is_(None),
+                Slot.date >= date.today(),
+            )
             .order_by(Slot.date, Slot.time)
             .all()
         )
+        stall.available_slots = filter_bookable_slots(stall, available_slots)
+        if not stall.available_slots:
+            continue
+        available_stalls.append(stall)
+        locations.setdefault(stall.city, set()).add(stall.district)
         stalls_data.append(
             {
                 "id": str(stall.id),
+                "name": stall.loc_name,
+                "city": stall.city,
+                "district": stall.district,
+                "road": stall.road,
+                "environment_type": stall.environment_type,
+                "booking_mode": stall.booking_mode,
+                "minimum_booking_hours": stall.minimum_booking_hours,
                 "slots": [
                     {
                         "date": slot.date.strftime("%Y-%m-%d"),
                         "time": slot.time or 0,
+                        "duration_hours": slot.duration_hours,
                         "price": slot.price or 0,
                     }
                     for slot in stall.available_slots
@@ -44,7 +69,9 @@ def stall_list():
 
     return render_template(
         "stalls.html",
-        stalls=stalls,
+        stalls=available_stalls,
+        stalls_data=stalls_data,
+        locations={city: sorted(districts) for city, districts in sorted(locations.items())},
         user_id=tenant.id if tenant is not None else None,
         tenant_display_name=tenant.display_name if tenant is not None else None,
         tenant_reputation=tenant.reputation_score if tenant is not None else None,
@@ -58,7 +85,6 @@ def stall_list():
                 next=url_for("web_stalls.stall_list"),
             )
         ),
-        stalls_json=json.dumps(stalls_data, ensure_ascii=False),
     )
 
 
@@ -67,12 +93,17 @@ def stall_list():
 def booking_page(stall_id: int, user_id: int):
     stall = get_or_404(Stall, stall_id)
     tenant = require_current_user_id(user_id)
-    slots = (
+    available_slots = (
         Slot.query.outerjoin(Booking)
-        .filter(Slot.stall_id == stall.id, Booking.id.is_(None))
+        .filter(
+            Slot.stall_id == stall.id,
+            Booking.id.is_(None),
+            Slot.date >= date.today(),
+        )
         .order_by(Slot.date, Slot.time)
         .all()
     )
+    slots = filter_bookable_slots(stall, available_slots)
     return render_template("booking_page.html", stall=stall, tenant=tenant, slots=slots)
 
 
@@ -92,7 +123,11 @@ def make_booking():
     if not slot_ids:
         return redirect(request.referrer or "/stalls/")
 
-    qr_code, created_count = create_booking_for_slots(tenant.id, slot_ids)
+    try:
+        qr_code, created_count = create_booking_for_slots(tenant.id, slot_ids)
+    except BookingSelectionError as error:
+        flash(str(error), "booking-error")
+        return redirect(request.referrer or "/stalls/")
     if not created_count or qr_code is None:
         return redirect(request.referrer or "/stalls/")
     return redirect(f"/payment/{qr_code}/")

@@ -171,10 +171,20 @@
             </div>
             
             <div class="form-group">
-                 <label>5. 設施與特色描述</label>
+                <label>5. 場地型態</label>
+                <select name="environment_type" required>
+                    <option value="">-- 請選擇室內或戶外 --</option>
+                    <option value="indoor">室內場地</option>
+                    <option value="outdoor">戶外場地</option>
+                    <option value="mixed">室內與戶外皆有</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                 <label>6. 設施與特色描述</label>
                  <textarea name="facilities" rows="4" placeholder="請詳細描述您提供的硬體設施或攤位環境特色..."></textarea>
             </div>
-            <button type="submit" class="submit-btn">🚀 立即發佈攤位</button>
+            <button type="submit" class="submit-btn">下一步：設定出租方式與價格</button>
         </form>
     </div>
 </div>

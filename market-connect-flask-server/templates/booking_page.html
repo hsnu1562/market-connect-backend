@@ -31,6 +31,9 @@
 
         .stall-info { padding: 20px 0; border-bottom: 1px solid #ddd; margin-bottom: 30px; line-height: 1.8; }
         .info-label { font-weight: 700; color: #555; display: inline-block; width: 100px; }
+        .policy-notice { margin: 24px 0; padding: 18px 20px; border-left: 5px solid var(--tenant-accent); background: #eef2f5; line-height: 1.7; }
+        .booking-error { margin: 20px 0; padding: 14px 16px; border: 2px solid #9c2f2f; background: #fff0ed; color: #7d2424; font-weight: 700; }
+        .selection-message { min-height: 1.5em; margin-top: 12px; color: #9c2f2f; font-size: 0.9rem; font-weight: 700; }
 
         /* 復古直角表格 */
         .slot-table { width: 100%; border-collapse: collapse; border: 2px solid var(--border-line); }
@@ -71,8 +74,25 @@
         <div class="stall-info">
             <div><span class="info-label">攤位:</span><strong>{{ stall.loc_name }}</strong></div>
             <div><span class="info-label">地址:</span>{{ stall.city }}{{ stall.district }}{{ stall.road }}{{ stall.address_detail }}</div>
+            <div><span class="info-label">場地:</span>{% if stall.environment_type == 'indoor' %}室內{% elif stall.environment_type == 'outdoor' %}戶外{% elif stall.environment_type == 'mixed' %}室內與戶外{% else %}未標示{% endif %}</div>
             <div><span class="info-label">租客:</span>{{ tenant.first_name }} {{ tenant.last_name }}</div>
         </div>
+
+        <div class="policy-notice">
+            {% if stall.booking_mode == 'daily' %}
+                <strong>整日出租・不可拆分</strong><br>
+                每個選項是一個完整開放時段，顯示價格就是該時段的固定總價。
+            {% else %}
+                <strong>按小時出租・至少 {{ stall.minimum_booking_hours }} 小時</strong><br>
+                請選擇同一天的連續時段。預估總額為所選小時價格的合計。
+            {% endif %}
+        </div>
+
+        {% with booking_errors = get_flashed_messages(category_filter=['booking-error']) %}
+            {% if booking_errors %}
+                <div class="booking-error" role="alert">{{ booking_errors[0] }}</div>
+            {% endif %}
+        {% endwith %}
 
         <h3>🗓️ 選擇檔期</h3>
         
@@ -91,10 +111,10 @@
                     <tbody>
                         {% for slot in slots %}
                         <tr>
-                            <td><input type="checkbox" name="slot_ids" value="{{ slot.id }}" data-price="{{ slot.price }}" class="slot-checkbox"></td>
+                            <td><input type="{% if stall.booking_mode == 'daily' %}radio{% else %}checkbox{% endif %}" name="slot_ids" value="{{ slot.id }}" data-price="{{ slot.price }}" data-date="{{ slot.date|date('Y-m-d') }}" data-time="{{ slot.time }}" data-duration="{{ slot.duration_hours }}" class="slot-checkbox"></td>
                             <td><strong>{{ slot.date }}</strong></td>
-                            <td>{{ slot.time }}:00 - {{ slot.time + 1 }}:00</td>
-                            <td>${{ slot.price }} /hr</td>
+                            <td>{{ slot.time }}:00 - {{ slot.time + slot.duration_hours }}:00</td>
+                            <td>${{ slot.price }} {% if stall.booking_mode == 'daily' %}/完整時段{% else %}/hr{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -107,6 +127,7 @@
                     </div>
                     <button type="submit" class="submit-btn" id="submit-btn" disabled>確認預約並付款</button>
                 </div>
+                <div id="selection-message" class="selection-message" aria-live="polite"></div>
             </form>
         {% else %}
             <p>⚠️ 目前暫無可預約時段。</p>
@@ -119,15 +140,41 @@
     const checkboxes = document.querySelectorAll('.slot-checkbox');
     const totalPriceEl = document.getElementById('total-price');
     const submitBtn = document.getElementById('submit-btn');
+    const selectionMessage = document.getElementById('selection-message');
+    const bookingMode = '{{ stall.booking_mode }}';
+    const minimumHours = {{ stall.minimum_booking_hours }};
 
-    checkboxes.forEach(cb => {
-        cb.addEventListener('change', () => {
-            let total = 0;
-            checkboxes.forEach(c => { if(c.checked) total += parseInt(c.dataset.price); });
-            totalPriceEl.textContent = `$${total}`;
-            submitBtn.disabled = total === 0;
-        });
-    });
+    if (submitBtn) {
+    function validateSelection() {
+        const selected = Array.from(checkboxes).filter(input => input.checked);
+        const total = selected.reduce((sum, input) => sum + parseInt(input.dataset.price), 0);
+        let message = '';
+
+        if (selected.length === 0) {
+            message = '請先選擇預約時段。';
+        } else if (bookingMode === 'hourly') {
+            const dates = new Set(selected.map(input => input.dataset.date));
+            const hours = selected.map(input => parseInt(input.dataset.time)).sort((a, b) => a - b);
+            const isConsecutive = hours.every((hour, index) => index === 0 || hour === hours[index - 1] + 1);
+            if (dates.size !== 1) {
+                message = '一次只能預約同一天的時段。';
+            } else if (!isConsecutive) {
+                message = '請選擇連續時段，不能跳過中間時段。';
+            } else if (selected.length < minimumHours) {
+                message = `此攤位每次至少需要預約 ${minimumHours} 小時。`;
+            }
+        } else if (selected.length !== 1) {
+            message = '整日方案一次只能選擇一個完整時段。';
+        }
+
+        totalPriceEl.textContent = `$${total}`;
+        selectionMessage.textContent = message;
+        submitBtn.disabled = selected.length === 0 || Boolean(message);
+    }
+
+    checkboxes.forEach(input => input.addEventListener('change', validateSelection));
+    validateSelection();
+    }
 </script>
 </body>
 </html>

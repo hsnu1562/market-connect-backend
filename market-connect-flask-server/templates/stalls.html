@@ -63,29 +63,72 @@
 
         .nav-btn:hover { background: var(--bg-paper); color: var(--text-charcoal); }
 
-        /* 標題區域 */
-        .header { text-align: center; padding: 60px 20px; }
+        .header { text-align: center; padding: 54px 20px 30px; }
         .header h1 { 
             font-family: 'Playfair Display', serif; 
             font-size: 3rem; 
             font-style: italic; 
-            margin-bottom: 20px; 
+            margin: 0 0 14px;
         }
+        .header p { max-width: 650px; margin: 0 auto; color: #555; line-height: 1.7; }
 
-        .filter-box input {
-            padding: 15px;
+        .filter-panel {
+            width: min(1180px, calc(100% - 40px));
+            margin: 0 auto 30px;
+            padding: 24px;
             border: 2px solid var(--border-line);
+            border-top: 8px solid var(--accent-green);
             background: white;
-            font-size: 1.1rem;
-            text-align: center;
-            width: 300px;
-            cursor: pointer;
+            box-sizing: border-box;
         }
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 1.4fr repeat(3, 1fr);
+            gap: 16px;
+        }
+        .filter-field label {
+            display: block;
+            margin-bottom: 7px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+        }
+        .filter-field input, .filter-field select {
+            width: 100%;
+            min-height: 46px;
+            padding: 10px 12px;
+            border: 1.5px solid var(--border-line);
+            border-radius: 0;
+            background: #fffdf7;
+            color: var(--text-charcoal);
+            font: inherit;
+            box-sizing: border-box;
+        }
+        .filter-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid #cbc7bb;
+        }
+        .result-summary { margin: 0; font-weight: 700; }
+        .clear-filters {
+            padding: 9px 14px;
+            border: 1.5px solid var(--border-line);
+            background: transparent;
+            color: var(--text-charcoal);
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+        }
+        .clear-filters:hover { background: var(--text-charcoal); color: white; }
 
         /* 攤位卡片：報紙廣告版位風格 */
         .stall-container {
-            max-width: 1000px;
-            margin: 40px auto;
+            max-width: 1180px;
+            margin: 30px auto;
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(min(100%, 450px), 1fr));
             gap: 30px;
@@ -96,11 +139,16 @@
             background: white;
             border: 2px solid var(--border-line);
             padding: 30px;
-            display: none; /* JS 控制顯示 */
+            display: block;
         }
+        .stall-card[hidden] { display: none; }
 
         .stall-name { font-family: 'Playfair Display', serif; font-size: 1.8rem; margin: 0 0 10px; }
         .stall-address { color: #555; margin-bottom: 20px; font-size: 0.9rem; }
+        .stall-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+        .meta-tag { padding: 5px 9px; border: 1px solid #aaa69a; background: #f8f5ec; font-size: 0.78rem; font-weight: 700; }
+        .availability-title { margin-bottom: 10px; border-bottom: 1px solid #ddd; padding-bottom: 7px; font-weight: 700; }
+        .more-availability { margin: 8px 0 0; color: #666; font-size: 0.82rem; }
         
         .time-block {
             border: 1px solid #ddd;
@@ -108,7 +156,10 @@
             margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
+            align-items: center;
+            gap: 12px;
         }
+        .time-block strong { white-space: nowrap; }
 
         .booking-btn {
             display: block;
@@ -124,10 +175,17 @@
 
         .no-data { text-align: center; padding: 50px; font-style: italic; color: #888; }
 
+        @media (max-width: 900px) {
+            .filter-grid { grid-template-columns: 1fr 1fr; }
+        }
+
         @media (max-width: 620px) {
             .header { padding: 40px 16px; }
             .header h1 { font-size: 2.35rem; }
-            .filter-box input { width: 100%; max-width: 300px; box-sizing: border-box; }
+            .filter-panel { width: calc(100% - 28px); padding: 20px 16px; }
+            .filter-grid { grid-template-columns: 1fr; }
+            .filter-footer { align-items: stretch; flex-direction: column; }
+            .clear-filters { width: 100%; }
             .stall-container { margin-top: 20px; padding: 0 14px 70px; }
             .stall-card { padding: 24px 18px; }
             .navbar { padding: 16px 14px !important; gap: 18px; }
@@ -163,64 +221,210 @@
     {% else %}
         <div class="header">
             <h1>探索您的下一個據點</h1>
-            <div class="filter-box">
-                <input type="text" id="main-datepicker" placeholder="📅 點選篩選日期">
-            </div>
+            <p>先瀏覽所有目前可租的場地，再依地點、場地型態、出租方式、日期或預算縮小範圍。</p>
         </div>
 
-        <div id="no-data-msg" class="no-data">請在上方選擇日期開始搜尋攤位資訊</div>
+        <section class="filter-panel" aria-label="攤位篩選">
+            <div class="filter-grid">
+                <div class="filter-field">
+                    <label for="keyword-filter">關鍵字</label>
+                    <input type="search" id="keyword-filter" placeholder="攤位名稱、道路或行政區">
+                </div>
+                <div class="filter-field">
+                    <label for="main-datepicker">可租日期</label>
+                    <input type="text" id="main-datepicker" placeholder="選擇日期（可留空）">
+                </div>
+                <div class="filter-field">
+                    <label for="city-filter">縣市</label>
+                    <select id="city-filter">
+                        <option value="">全部縣市</option>
+                        {% for city in locations %}<option value="{{ city }}">{{ city }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="district-filter">行政區</label>
+                    <select id="district-filter"><option value="">全部行政區</option></select>
+                </div>
+                <div class="filter-field">
+                    <label for="environment-filter">場地型態</label>
+                    <select id="environment-filter">
+                        <option value="">室內與戶外</option>
+                        <option value="indoor">室內</option>
+                        <option value="outdoor">戶外</option>
+                        <option value="mixed">室內與戶外皆有</option>
+                        <option value="unspecified">未標示</option>
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="booking-mode-filter">出租方式</label>
+                    <select id="booking-mode-filter">
+                        <option value="">全部方式</option>
+                        <option value="hourly">按小時出租</option>
+                        <option value="daily">整日出租</option>
+                    </select>
+                </div>
+                <div class="filter-field">
+                    <label for="max-price-filter">單次預算上限 (NT$)</label>
+                    <input type="number" id="max-price-filter" min="1" step="1" placeholder="不限">
+                </div>
+            </div>
+            <div class="filter-footer">
+                <p class="result-summary" id="result-summary" aria-live="polite"></p>
+                <button type="button" class="clear-filters" id="clear-filters">清除全部條件</button>
+            </div>
+        </section>
+
+        <div id="no-data-msg" class="no-data" hidden>找不到符合目前條件的可租攤位，請放寬篩選條件。</div>
 
         <div class="stall-container" id="stall-list">
             {% for stall in stalls %}
-                <div class="stall-card" data-stall-id="{{ stall.id }}" data-dates='[{% for s in stall.available_slots %}"{{ s.date|date("Y-m-d") }}"{% if not loop.last %},{% endif %}{% endfor %}]'>
+                <article class="stall-card" data-stall-id="{{ stall.id }}">
                     <h2 class="stall-name">{{ stall.loc_name }}</h2>
                     <div class="stall-address">📍 {{ stall.city }}{{ stall.district }}{{ stall.road }}</div>
+                    <div class="stall-meta">
+                        <span class="meta-tag">{% if stall.environment_type == 'indoor' %}室內{% elif stall.environment_type == 'outdoor' %}戶外{% elif stall.environment_type == 'mixed' %}室內與戶外{% else %}場地型態未標示{% endif %}</span>
+                        <span class="meta-tag">{% if stall.booking_mode == 'daily' %}整日出租・不可拆分{% else %}按小時・至少 {{ stall.minimum_booking_hours }} 小時{% endif %}</span>
+                    </div>
                     <div id="availability-{{ stall.id }}"></div>
                     {% if can_book %}
                         <a href="/booking_page/{{ stall.id }}/{{ user_id }}/" class="booking-btn">預約此攤位</a>
                     {% else %}
                         <a href="{{ account_url }}" class="booking-btn" data-auth-role="Tenant" data-auth-next="{{ url_for('web_stalls.stall_list') }}">登入後預約</a>
                     {% endif %}
-                </div>
+                </article>
             {% endfor %}
         </div>
     {% endif %}
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
-        const allStallPrices = JSON.parse('{{ stalls_json|escapejs }}');
-        flatpickr("#main-datepicker", { minDate: "today", dateFormat: "Y-m-d", onChange: (sd, ds) => filterStalls(ds) });
+        const stalls = {{ stalls_data|tojson }};
+        const locations = {{ locations|tojson }};
+        const cards = Array.from(document.querySelectorAll('.stall-card'));
+        const filters = {
+            keyword: document.getElementById('keyword-filter'),
+            date: document.getElementById('main-datepicker'),
+            city: document.getElementById('city-filter'),
+            district: document.getElementById('district-filter'),
+            environment: document.getElementById('environment-filter'),
+            bookingMode: document.getElementById('booking-mode-filter'),
+            maxPrice: document.getElementById('max-price-filter')
+        };
+        const datePicker = window.flatpickr
+            ? flatpickr(filters.date, {
+                minDate: 'today',
+                dateFormat: 'Y-m-d',
+                onChange: applyFilters
+            })
+            : { clear: () => { filters.date.value = ''; } };
 
-        function filterStalls(targetDate) {
-            // 1. 隱藏預設文字與搜尋結果
-            document.getElementById('no-data-msg').style.display = 'none';
-            const cards = document.querySelectorAll('.stall-card');
-            let foundAny = false;
+        function updateDistricts() {
+            const previousValue = filters.district.value;
+            const districtValues = filters.city.value
+                ? (locations[filters.city.value] || [])
+                : [...new Set(Object.values(locations).flat())].sort();
+            const options = [new Option('全部行政區', '')];
+            districtValues.forEach(district => options.push(new Option(district, district)));
+            filters.district.replaceChildren(...options);
+            if (districtValues.includes(previousValue)) filters.district.value = previousValue;
+        }
 
-            cards.forEach(card => {
-                const dates = JSON.parse(card.getAttribute('data-dates'));
-                const stallId = card.dataset.stallId;
-                const box = document.getElementById('availability-' + stallId);
-                
-                if (dates.includes(targetDate)) {
-                    card.style.display = 'block';
-                    foundAny = true; // 標記有找到攤位
-                    
-                    const data = allStallPrices.find(s => s.id == stallId).slots.filter(s => s.date === targetDate);
-                    box.innerHTML = `<div style="font-weight:700; margin-bottom:10px; border-bottom:1px solid #ddd; padding-bottom:5px;">${targetDate} 的空檔：</div>` + 
-                        data.map(s => `<div class="time-block"><span>${s.time}:00 - ${s.time+1}:00</span><span style="font-weight:700;">$${s.price}</span></div>`).join('');
-                } else {
-                    card.style.display = 'none';
+        function matchingSlots(stall) {
+            return filters.date.value
+                ? stall.slots.filter(slot => slot.date === filters.date.value)
+                : stall.slots;
+        }
+
+        function renderAvailability(stall, slots) {
+            const box = document.getElementById(`availability-${stall.id}`);
+            const visibleSlots = slots.slice(0, 4);
+            const title = filters.date.value ? `${filters.date.value} 的可租時段` : '近期可租時段';
+            box.innerHTML = `<div class="availability-title">${title}</div>` + visibleSlots.map(slot => {
+                const endTime = slot.time + slot.duration_hours;
+                const priceUnit = stall.booking_mode === 'daily' ? '完整時段' : 'hr';
+                return `<div class="time-block"><span>${slot.date} · ${slot.time}:00–${endTime}:00</span><strong>$${slot.price} / ${priceUnit}</strong></div>`;
+            }).join('') + (slots.length > visibleSlots.length
+                ? `<p class="more-availability">另有 ${slots.length - visibleSlots.length} 個可租時段</p>`
+                : '');
+        }
+
+        function minimumReservationPrice(stall, slots) {
+            if (stall.booking_mode === 'daily') {
+                return Math.min(...slots.map(slot => slot.price));
+            }
+
+            const slotsByDate = slots.reduce((groups, slot) => {
+                if (!groups[slot.date]) groups[slot.date] = [];
+                groups[slot.date].push(slot);
+                return groups;
+            }, {});
+            let minimumPrice = Infinity;
+            Object.values(slotsByDate).forEach(dateSlots => {
+                const ordered = dateSlots.sort((a, b) => a.time - b.time);
+                for (let start = 0; start <= ordered.length - stall.minimum_booking_hours; start += 1) {
+                    const windowSlots = ordered.slice(start, start + stall.minimum_booking_hours);
+                    const isConsecutive = windowSlots.every((slot, index) => (
+                        index === 0 || slot.time === windowSlots[index - 1].time + 1
+                    ));
+                    if (isConsecutive) {
+                        minimumPrice = Math.min(
+                            minimumPrice,
+                            windowSlots.reduce((sum, slot) => sum + slot.price, 0)
+                        );
+                    }
+                }
+            });
+            return minimumPrice;
+        }
+
+        function applyFilters() {
+            const keyword = filters.keyword.value.trim().toLocaleLowerCase('zh-Hant');
+            const maxPrice = parseInt(filters.maxPrice.value);
+            let visibleCount = 0;
+
+            stalls.forEach(stall => {
+                const slots = matchingSlots(stall);
+                const searchableText = `${stall.name} ${stall.city} ${stall.district} ${stall.road}`.toLocaleLowerCase('zh-Hant');
+                const matches = slots.length > 0
+                    && (!keyword || searchableText.includes(keyword))
+                    && (!filters.city.value || stall.city === filters.city.value)
+                    && (!filters.district.value || stall.district === filters.district.value)
+                    && (!filters.environment.value || stall.environment_type === filters.environment.value)
+                    && (!filters.bookingMode.value || stall.booking_mode === filters.bookingMode.value)
+                    && (!maxPrice || minimumReservationPrice(stall, slots) <= maxPrice);
+                const card = cards.find(item => item.dataset.stallId === stall.id);
+                card.hidden = !matches;
+                if (matches) {
+                    visibleCount += 1;
+                    renderAvailability(stall, slots);
                 }
             });
 
-            // 2. 找不到攤位的優雅提示
-            const noDataMsg = document.getElementById('no-data-msg');
-            if (!foundAny) {
-                noDataMsg.innerHTML = `⚠️ 很抱歉，<b>${targetDate}</b> 當日已無可供預約的攤位，請試試其他日期。`;
-                noDataMsg.style.display = 'block';
-            }
+            document.getElementById('result-summary').textContent = `找到 ${visibleCount} 個可租攤位`;
+            document.getElementById('no-data-msg').hidden = visibleCount !== 0;
         }
+
+        filters.city.addEventListener('change', () => { updateDistricts(); applyFilters(); });
+        filters.keyword.addEventListener('input', applyFilters);
+        filters.date.addEventListener('change', applyFilters);
+        filters.district.addEventListener('change', applyFilters);
+        filters.environment.addEventListener('change', applyFilters);
+        filters.bookingMode.addEventListener('change', applyFilters);
+        filters.maxPrice.addEventListener('input', applyFilters);
+        document.getElementById('clear-filters').addEventListener('click', () => {
+            filters.keyword.value = '';
+            filters.city.value = '';
+            filters.environment.value = '';
+            filters.bookingMode.value = '';
+            filters.maxPrice.value = '';
+            datePicker.clear();
+            updateDistricts();
+            filters.district.value = '';
+            applyFilters();
+        });
+
+        updateDistricts();
+        applyFilters();
     </script>
     {% if not can_book %}{% include '_auth_dialog.html' %}{% endif %}
 </body>

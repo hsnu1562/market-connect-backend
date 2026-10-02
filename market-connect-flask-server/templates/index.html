@@ -731,7 +731,7 @@
 
         <div class="market-strip" aria-hidden="true">
             <span>近期可租攤位</span>
-            <span>按小時計價</span>
+            <span>小時或整日方案</span>
             <span>即時空檔</span>
             <span>可靠合作紀錄</span>
         </div>
@@ -742,7 +742,7 @@
                     <p class="section-kicker">Available now</p>
                     <h2 id="availability-title">本期攤位選集</h2>
                 </div>
-                <p class="section-description">依最近可租日期排序。卡片價格為該攤位目前開放時段的最低每小時租金。</p>
+                <p class="section-description">依最近可租日期排序。價格依場地主設定，提供按小時或整日出租方案。</p>
             </div>
 
             {% if listings %}
@@ -771,7 +771,7 @@
                                 <p class="availability-label">NEXT · {{ listing.next_date|date("Y/m/d") }} 起，共 {{ listing.available_days }} 個開放日</p>
                                 <div class="slot-list">
                                     {% for slot in listing.preview_slots %}
-                                        <span class="slot">{{ slot.date|date("m/d") }} · {{ slot.time }}:00</span>
+                                        <span class="slot">{{ slot.date|date("m/d") }} · {{ slot.time }}:00–{{ slot.time + slot.duration_hours }}:00</span>
                                     {% endfor %}
                                     {% if listing.slots|length > 3 %}
                                         <span class="more-slots">另有 {{ listing.slots|length - 3 }} 個時段</span>
@@ -781,8 +781,8 @@
 
                             <div class="card-footer">
                                 <div>
-                                    <span class="price-label">每小時起</span>
-                                    <span class="price">NT$ {{ listing.min_price }} <small>/ hr</small></span>
+                                    <span class="price-label">{{ listing.price_label }}</span>
+                                    <span class="price">NT$ {{ listing.min_price }} <small>/ {{ listing.price_unit }}</small></span>
                                 </div>
                                 <a class="card-action" href="{{ listing.action_url }}"{% if not current_user %} data-auth-role="Tenant" data-auth-next="{{ url_for('web_stalls.stall_list') }}"{% endif %}>{{ listing.action_label }} →</a>
                             </div>

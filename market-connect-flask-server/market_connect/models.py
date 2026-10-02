@@ -144,6 +144,24 @@ class Stall(db.Model):
     road = db.Column(db.String(50), nullable=False)
     address_detail = db.Column(db.String(100), nullable=False)
     facilities = db.Column(db.Text)
+    environment_type = db.Column(
+        db.String(20),
+        default="unspecified",
+        server_default="unspecified",
+        nullable=False,
+    )
+    booking_mode = db.Column(
+        db.String(20),
+        default="hourly",
+        server_default="hourly",
+        nullable=False,
+    )
+    minimum_booking_hours = db.Column(
+        db.Integer,
+        default=1,
+        server_default="1",
+        nullable=False,
+    )
 
     owner = db.relationship("User", back_populates="stalls")
     slots = db.relationship("Slot", back_populates="stall", cascade="all, delete-orphan")
@@ -157,13 +175,17 @@ class Slot(db.Model):
     stall_id = db.Column(db.Integer, db.ForeignKey("stall.id"), nullable=False)
     date = db.Column(db.Date, nullable=False)
     time = db.Column(db.Integer, nullable=False)
+    duration_hours = db.Column(db.Integer, default=1, server_default="1", nullable=False)
     price = db.Column(db.Integer, nullable=False)
 
     stall = db.relationship("Stall", back_populates="slots")
     booking = db.relationship("Booking", back_populates="slot", uselist=False)
 
     def __repr__(self) -> str:
-        return f"<Slot {self.date} {self.time}:00 ${self.price}>"
+        return (
+            f"<Slot {self.date} {self.time}:00 "
+            f"+{self.duration_hours}h ${self.price}>"
+        )
 
 
 class Booking(db.Model):

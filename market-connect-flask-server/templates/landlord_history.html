@@ -75,7 +75,7 @@
                             <td style="font-weight: bold;">{{ v.stall_name }}</td>
                             <td style="white-space: nowrap; font-weight: 600;">{{ v.date }}</td>
                             <td style="font-size: 1rem; font-weight: bold; color: var(--text-charcoal);">{{ v.time_zone }}</td>
-                            <td style="color: var(--vacancy-accent); font-weight: bold; white-space: nowrap; font-size: 1.05rem;">${{ v.price }}</td>
+                            <td style="color: var(--vacancy-accent); font-weight: bold; white-space: nowrap; font-size: 1.05rem;">${{ v.price }} {% if v.booking_mode == 'daily' %}/ 日{% else %}/ 全部時段{% endif %}</td>
                             <td style="white-space: nowrap;">
                                 <span style="color: var(--vacancy-accent); font-weight: bold; background: rgba(74, 124, 89, 0.08); padding: 4px 10px; border: 1px solid var(--vacancy-accent);">開放</span>
                             </td>

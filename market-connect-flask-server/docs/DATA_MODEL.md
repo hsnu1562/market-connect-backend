@@ -13,8 +13,13 @@ These existing tables support the customer-facing service:
 - `user`: account profile, legacy primary role, status, and reputation.
 - `user_role`: all role memberships; one user can be both renter and provider.
 - `auth_identity`: Google or future LINE identity keyed by provider subject.
-- `stall`: a provider-owned physical stall or rentable space.
-- `slot`: one bookable hour for a stall, including its date and price.
+- `stall`: a provider-owned physical stall or rentable space. It records the
+  indoor/outdoor environment, whether it rents hourly or as a complete daily
+  period, and the 1/2/3-hour minimum for hourly reservations.
+- `slot`: one bookable period for a stall, including its date, start hour,
+  duration, and price. In hourly mode each row is one hour and selected rows
+  must be consecutive. In daily mode one row represents the entire indivisible
+  opening period and its price is the flat total.
 - `booking`: a renter's reservation for exactly one slot, payment state, and QR
   code group.
 - `stall_price`: an optional pricing record for a stall date and hour.

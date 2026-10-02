@@ -42,6 +42,7 @@ def seed_demo_data() -> None:
         road="Bade Rd",
         address_detail="東2A",
         facilities="Power, Water",
+        environment_type="indoor",
     )
     db.session.add_all([landlord, tenant, stall])
     db.session.flush()

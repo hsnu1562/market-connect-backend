@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -53,6 +54,7 @@ def app():
             road="Bade Rd",
             address_detail="東2A",
             facilities="Power, Water",
+            environment_type="indoor",
         )
         db.session.add_all([landlord, tenant1, tenant2, stall])
         db.session.flush()
@@ -108,6 +110,22 @@ def test_homepage_links_tenant_to_booking(app, client):
     assert f'href="{booking_url}"'.encode() in response.data
     assert b"Tenant One" in response.data
     assert b'href="/account/profile/"' in response.data
+
+
+def test_marketplace_exposes_discovery_filters_and_booking_policy(app, client):
+    response = client.get("/stalls/")
+
+    assert response.status_code == 200
+    assert b'id="keyword-filter"' in response.data
+    assert b'id="city-filter"' in response.data
+    assert b'id="district-filter"' in response.data
+    assert b'id="environment-filter"' in response.data
+    assert b'id="booking-mode-filter"' in response.data
+    assert b'id="max-price-filter"' in response.data
+    assert b"Huashan Stall A" in response.data
+    assert b'"environment_type": "indoor"' in response.data
+    assert b'"booking_mode": "hourly"' in response.data
+    assert b'"minimum_booking_hours": 1' in response.data
 
 
 def test_templates_use_spacis_brand():
@@ -191,6 +209,279 @@ def test_complete_booking_flow(app, client):
     assert f'name="slot_ids" value="{slot2.id}"'.encode() not in response.data
     assert f'name="slot_ids" value="{slot3.id}"'.encode() in response.data
     assert b'name="user_id"' not in response.data
+
+
+def test_provider_can_publish_full_day_stall(app, client):
+    with app.app_context():
+        landlord = User.query.filter_by(username="landlord1").one()
+
+    with client.session_transaction() as session:
+        session["user_id"] = landlord.id
+        session["_csrf_token"] = "publish-test-token"
+
+    response = client.post(
+        f"/landlord/{landlord.id}/",
+        data={
+            "_csrf_token": "publish-test-token",
+            "loc_name": "Riverside Market",
+            "city": "New Taipei",
+            "district": "Banqiao",
+            "road": "Xianmin Blvd",
+            "address_detail": "No. 7",
+            "environment_type": "outdoor",
+            "facilities": "Power",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+
+    with app.app_context():
+        stall = Stall.query.filter_by(loc_name="Riverside Market").one()
+        stall_id = stall.id
+        assert stall.environment_type == "outdoor"
+
+    available_date = (date.today() + timedelta(days=10)).isoformat()
+    response = client.post(
+        f"/stall_pricing/{stall_id}/",
+        data={
+            "_csrf_token": "publish-test-token",
+            "booking_mode": "daily",
+            "slots_json": json.dumps(
+                [
+                    {
+                        "date": available_date,
+                        "hour": 8,
+                        "duration_hours": 9,
+                        "price": 3600,
+                    }
+                ]
+            ),
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith(f"/landlord/history/{landlord.id}/")
+
+    with app.app_context():
+        stall = db.session.get(Stall, stall_id)
+        slot = Slot.query.filter_by(stall_id=stall_id).one()
+        assert stall.booking_mode == "daily"
+        assert stall.minimum_booking_hours == 1
+        assert (slot.time, slot.duration_hours, slot.price) == (8, 9, 3600)
+
+    response = client.post(
+        f"/stall_pricing/{stall_id}/",
+        data={
+            "_csrf_token": "publish-test-token",
+            "booking_mode": "daily",
+            "slots_json": json.dumps(
+                [
+                    {
+                        "date": available_date,
+                        "hour": 9,
+                        "duration_hours": 2,
+                        "price": 900,
+                    }
+                ]
+            ),
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 409
+    with app.app_context():
+        assert Slot.query.filter_by(stall_id=stall_id).count() == 1
+
+
+def test_provider_cannot_publish_hourly_date_below_its_minimum(app, client):
+    with app.app_context():
+        landlord_id = User.query.filter_by(username="landlord1").one().id
+        stall_id = Stall.query.filter_by(loc_name="Huashan Stall A").one().id
+
+    with client.session_transaction() as session:
+        session["user_id"] = landlord_id
+        session["_csrf_token"] = "short-schedule-token"
+
+    available_date = (date.today() + timedelta(days=30)).isoformat()
+    response = client.post(
+        f"/stall_pricing/{stall_id}/",
+        data={
+            "_csrf_token": "short-schedule-token",
+            "booking_mode": "hourly",
+            "minimum_booking_hours": "2",
+            "slots_json": json.dumps(
+                [
+                    {
+                        "date": available_date,
+                        "hour": 8,
+                        "duration_hours": 1,
+                        "price": 300,
+                    }
+                ]
+            ),
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 400
+    with app.app_context():
+        assert Slot.query.filter_by(stall_id=stall_id, date=date.fromisoformat(available_date)).count() == 0
+
+
+def test_hourly_booking_requires_consecutive_minimum_and_sums_prices(app, client):
+    with app.app_context():
+        tenant = User.query.filter_by(username="tenant1").one()
+        stall = Stall.query.filter_by(loc_name="Huashan Stall A").one()
+        stall.minimum_booking_hours = 2
+        slots = Slot.query.order_by(Slot.time).all()
+        slot1_id, slot2_id, slot3_id = (slot.id for slot in slots)
+        db.session.commit()
+        booking_url = f"/booking_page/{stall.id}/{tenant.id}/"
+
+    with client.session_transaction() as session:
+        session["user_id"] = tenant.id
+        session["_csrf_token"] = "minimum-test-token"
+
+    response = client.post(
+        "/make_booking/",
+        data={"_csrf_token": "minimum-test-token", "slot_ids": [slot1_id]},
+        headers={"Referer": booking_url},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert "至少需要預約 2 小時".encode() in response.data
+
+    response = client.post(
+        "/make_booking/",
+        data={
+            "_csrf_token": "minimum-test-token",
+            "slot_ids": [slot1_id, slot3_id],
+        },
+        headers={"Referer": booking_url},
+        follow_redirects=True,
+    )
+    assert response.status_code == 200
+    assert "所選時段必須連續".encode() in response.data
+
+    with app.app_context():
+        assert Booking.query.count() == 0
+
+    response = client.post(
+        "/make_booking/",
+        data={
+            "_csrf_token": "minimum-test-token",
+            "slot_ids": [slot1_id, slot2_id],
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    payment = client.get(response.headers["Location"])
+    assert payment.status_code == 200
+    assert b"$600" in payment.data
+
+
+def test_hourly_fragments_that_cannot_meet_minimum_are_hidden(app, client):
+    with app.app_context():
+        tenant1 = User.query.filter_by(username="tenant1").one()
+        tenant2 = User.query.filter_by(username="tenant2").one()
+        stall = Stall.query.filter_by(loc_name="Huashan Stall A").one()
+        slots = Slot.query.order_by(Slot.time).all()
+        stall.minimum_booking_hours = 2
+        db.session.add(
+            Booking(
+                user=tenant2,
+                slot=slots[1],
+                qr_code="MIDDLE01",
+                payment_status="Paid",
+                payment_method="Credit Card",
+            )
+        )
+        db.session.commit()
+        tenant_id = tenant1.id
+        stall_id = stall.id
+
+    homepage = client.get("/")
+    assert homepage.status_code == 200
+    assert b"Huashan Stall A" not in homepage.data
+
+    marketplace = client.get("/stalls/")
+    assert marketplace.status_code == 200
+    assert f'data-stall-id="{stall_id}"'.encode() not in marketplace.data
+
+    api_response = client.get(f"/api/v1/stalls/{stall_id}/slots")
+    assert api_response.status_code == 200
+    assert api_response.get_json()["slots"] == []
+
+    with client.session_transaction() as session:
+        session["user_id"] = tenant_id
+    booking_page = client.get(f"/booking_page/{stall_id}/{tenant_id}/")
+    assert booking_page.status_code == 200
+    assert b'class="slot-checkbox"' not in booking_page.data
+
+
+def test_full_day_booking_is_one_flat_price(app, client):
+    with app.app_context():
+        landlord = User.query.filter_by(username="landlord1").one()
+        tenant = User.query.filter_by(username="tenant1").one()
+        full_day_stall = Stall(
+            owner=landlord,
+            loc_name="Full Day Hall",
+            city="Taipei",
+            district="Datong",
+            road="Dihua St",
+            address_detail="No. 10",
+            environment_type="indoor",
+            booking_mode="daily",
+        )
+        first_date = date.today() + timedelta(days=12)
+        db.session.add_all(
+            [
+                full_day_stall,
+                Slot(
+                    stall=full_day_stall,
+                    date=first_date,
+                    time=8,
+                    duration_hours=9,
+                    price=3600,
+                ),
+                Slot(
+                    stall=full_day_stall,
+                    date=first_date + timedelta(days=1),
+                    time=8,
+                    duration_hours=9,
+                    price=4000,
+                ),
+            ]
+        )
+        db.session.commit()
+        tenant_id = tenant.id
+        slot_ids = [slot.id for slot in full_day_stall.slots]
+
+    with client.session_transaction() as session:
+        session["user_id"] = tenant_id
+        session["_csrf_token"] = "daily-test-token"
+
+    response = client.post(
+        "/make_booking/",
+        data={"_csrf_token": "daily-test-token", "slot_ids": slot_ids},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/stalls/")
+
+    response = client.post(
+        "/make_booking/",
+        data={"_csrf_token": "daily-test-token", "slot_ids": [slot_ids[0]]},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    payment = client.get(response.headers["Location"])
+    assert payment.status_code == 200
+    assert b"$3600" in payment.data
+
+    with app.app_context():
+        bookings = Booking.query.filter_by(user_id=tenant_id).all()
+        assert len(bookings) == 1
+        assert bookings[0].slot.duration_hours == 9
 
 
 def test_tenant_navigation_stays_available_across_member_pages(app, client):
@@ -304,3 +595,28 @@ def test_api_booking_flow(app, client):
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["bookings"][0]["payment_status"] == "Paid"
+
+
+def test_api_rejects_booking_below_hourly_minimum(app, client):
+    with app.app_context():
+        tenant = User.query.filter_by(username="tenant1").one()
+        stall = Stall.query.filter_by(loc_name="Huashan Stall A").one()
+        stall.minimum_booking_hours = 2
+        slot_id = Slot.query.order_by(Slot.time).first().id
+        db.session.commit()
+        tenant_id = tenant.id
+
+    with client.session_transaction() as session:
+        session["user_id"] = tenant_id
+        session["_csrf_token"] = "api-minimum-token"
+
+    response = client.post(
+        "/api/v1/bookings",
+        json={"slot_ids": [slot_id]},
+        headers={"X-CSRF-Token": "api-minimum-token"},
+    )
+
+    assert response.status_code == 409
+    assert "至少需要預約 2 小時" in response.get_json()["error"]
+    with app.app_context():
+        assert Booking.query.count() == 0

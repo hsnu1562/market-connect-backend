@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+from datetime import date
+
 from flask import Blueprint, jsonify, request
 
 from ...models import Booking, Slot, Stall
 from ...security import get_current_user
-from ...services.bookings import apply_payment_to_qr, create_booking_for_slots
+from ...services.bookings import (
+    BookingSelectionError,
+    apply_payment_to_qr,
+    create_booking_for_slots,
+    filter_bookable_slots,
+)
 
 
 bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
@@ -23,12 +30,20 @@ def list_stalls():
 
 @bp.get("/stalls/<int:stall_id>/slots")
 def list_available_slots(stall_id: int):
-    slots = (
+    stall = Stall.query.filter_by(id=stall_id).first()
+    if stall is None:
+        return jsonify({"error": "stall not found"}), 404
+    available_slots = (
         Slot.query.outerjoin(Booking)
-        .filter(Slot.stall_id == stall_id, Booking.id.is_(None))
+        .filter(
+            Slot.stall_id == stall_id,
+            Booking.id.is_(None),
+            Slot.date >= date.today(),
+        )
         .order_by(Slot.date, Slot.time)
         .all()
     )
+    slots = filter_bookable_slots(stall, available_slots)
     return jsonify({"slots": [_slot_payload(slot) for slot in slots]})
 
 
@@ -47,7 +62,10 @@ def create_booking():
     except (TypeError, ValueError):
         return jsonify({"error": "slot_ids must contain integers"}), 400
 
-    qr_code, created_count = create_booking_for_slots(user.id, normalized_slot_ids)
+    try:
+        qr_code, created_count = create_booking_for_slots(user.id, normalized_slot_ids)
+    except BookingSelectionError as error:
+        return jsonify({"error": str(error)}), 409
     if not created_count or qr_code is None:
         return jsonify({"error": "no available slots were booked"}), 409
 
@@ -125,21 +143,29 @@ def _stall_payload(stall: Stall, include_slots: bool = False) -> dict:
         "address_detail": stall.address_detail,
         "city": stall.city,
         "district": stall.district,
+        "environment_type": stall.environment_type,
         "facilities": stall.facilities,
         "id": stall.id,
         "loc_name": stall.loc_name,
         "owner_id": stall.owner_id,
         "road": stall.road,
+        "booking_mode": stall.booking_mode,
+        "minimum_booking_hours": stall.minimum_booking_hours,
     }
     if include_slots:
+        available_slots = (
+            Slot.query.outerjoin(Booking)
+            .filter(
+                Slot.stall_id == stall.id,
+                Booking.id.is_(None),
+                Slot.date >= date.today(),
+            )
+            .order_by(Slot.date, Slot.time)
+            .all()
+        )
         payload["available_slots"] = [
             _slot_payload(slot)
-            for slot in (
-                Slot.query.outerjoin(Booking)
-                .filter(Slot.stall_id == stall.id, Booking.id.is_(None))
-                .order_by(Slot.date, Slot.time)
-                .all()
-            )
+            for slot in filter_bookable_slots(stall, available_slots)
         ]
     return payload
 
@@ -148,6 +174,7 @@ def _slot_payload(slot: Slot) -> dict:
     return {
         "date": slot.date.isoformat(),
         "id": slot.id,
+        "duration_hours": slot.duration_hours,
         "price": slot.price,
         "stall_id": slot.stall_id,
         "time": slot.time,

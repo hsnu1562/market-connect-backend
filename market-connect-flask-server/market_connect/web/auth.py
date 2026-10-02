@@ -35,6 +35,7 @@ from ..services.accounts import (
     register_local_user,
     update_user_profile,
 )
+from ..services.bookings import filter_bookable_slots
 from ..services.identities import IdentityError, find_or_create_google_user
 
 
@@ -65,6 +66,13 @@ def index():
             }
         listings_by_stall[stall.id]["slots"].append(slot)
 
+    bookable_listings = {}
+    for stall_id, listing in listings_by_stall.items():
+        listing["slots"] = filter_bookable_slots(listing["stall"], listing["slots"])
+        if listing["slots"]:
+            bookable_listings[stall_id] = listing
+    listings_by_stall = bookable_listings
+
     listings = list(listings_by_stall.values())[:6]
     current_user = get_current_user()
     is_tenant = current_user is not None and current_user.has_role("Tenant")
@@ -73,6 +81,10 @@ def index():
         slots = listing["slots"]
         listing["next_date"] = slots[0].date
         listing["min_price"] = min(slot.price for slot in slots)
+        listing["price_unit"] = "day" if listing["stall"].booking_mode == "daily" else "hr"
+        listing["price_label"] = (
+            "整日時段起" if listing["stall"].booking_mode == "daily" else "每小時起"
+        )
         listing["available_days"] = len({slot.date for slot in slots})
         listing["preview_slots"] = slots[:3]
         booking_url = (
@@ -93,7 +105,7 @@ def index():
 
     stats = {
         "stalls": len(listings_by_stall),
-        "slots": len(available_slots),
+        "slots": sum(len(listing["slots"]) for listing in listings_by_stall.values()),
         "cities": len({listing["stall"].city for listing in listings_by_stall.values()}),
     }
     provider_url = (
