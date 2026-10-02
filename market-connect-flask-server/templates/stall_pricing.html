@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPACIS | 檔期定價管理</title>
+    <!-- 引入 Flatpickr 樣式與 Miranda 網站靈魂：古典優雅的襯線字體 Playfair Display -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
+    <style>
+        :root {
+            --bg-paper: #fcfaf2; /* 💡 靈魂：高雅的復古再生紙米白色 */
+            --text-charcoal: #161616; /* 高級深炭黑 */
+            --border-line: #161616;
+            --landlord-accent: #c96f8a; /* 莫蘭迪復古粉 */
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: var(--bg-paper);
+            margin: 0;
+            padding: 0 0 60px 0; /* 移除頂部內邊距，改由 navbar 貼頂 */
+            color: var(--text-charcoal);
+        }
+
+        /* 💡 補上漏掉的頂部老雜誌風格導航列 CSS 樣式 */
+        .navbar {
+            background: var(--text-charcoal); padding: 15px 50px; display: flex;
+            justify-content: space-between; align-items: center; color: var(--bg-paper);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08); position: sticky; top: 0; z-index: 1000;
+        }
+        .navbar .logo { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 900; font-style: italic; color: var(--bg-paper); text-decoration: none; }
+        .user-info span b { color: #f3c1cf; margin: 0 5px; }
+
+        /* 💡 核心優化 1：捨棄圓角陰影，改用硬朗直角與粗黑邊框的印刷報紙卡片 */
+        .card {
+            max-width: 950px;
+            margin: 0 auto;
+            background: white;
+            padding: 45px 40px;
+            border: 2px solid var(--border-line);
+            border-radius: 0px; /* 堅持直角切邊 */
+            box-shadow: none;
+        }
+
+        .layout { display: flex; gap: 40px; margin-top: 35px; }
+        .side { flex: 1; }
+
+        .policy-panel {
+            margin: 30px 0 10px;
+            padding: 24px;
+            border: 2px solid var(--border-line);
+            background: var(--bg-paper);
+        }
+        .policy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .policy-help { margin: 0; color: #555; line-height: 1.65; }
+
+        label {
+            display: block;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            border-left: 3px solid var(--text-charcoal);
+            padding-left: 10px;
+        }
+
+        /* 下拉選單與輸入框徹底直角、線條化 */
+        select, input {
+            width: 100%;
+            padding: 14px;
+            border: 1px solid var(--border-line);
+            border-radius: 0px;
+            background-color: var(--bg-paper);
+            color: var(--text-charcoal);
+            font-size: 1rem;
+            box-sizing: border-box;
+            margin-bottom: 20px;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+        select:focus, input:focus {
+            background-color: #ffffff;
+            border: 2px solid var(--border-line);
+        }
+
+        /* Miranda 最經典的扁平實色直角按鈕（次要動作） */
+        .btn-add {
+            width: 100%;
+            padding: 15px;
+            background: transparent;
+            color: var(--text-charcoal);
+            border: 2px solid var(--border-line);
+            border-radius: 0px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            transition: all 0.2s ease;
+        }
+        .btn-add:hover {
+            background: var(--text-charcoal);
+            color: var(--bg-paper);
+        }
+
+        /* 暫存清單項目：精緻的報紙欄位實線切分 */
+        .preview-item {
+            background: #ffffff;
+            padding: 12px 15px;
+            border-radius: 0px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border-line);
+            border-left: 5px solid var(--text-charcoal);
+        }
+
+        /* 滿色深炭黑雜誌風正式發佈大按鈕（主要動作） */
+        .btn-main {
+            width: 100%;
+            padding: 18px;
+            background: var(--text-charcoal);
+            color: var(--bg-paper);
+            border: 2px solid var(--text-charcoal);
+            border-radius: 0px;
+            cursor: pointer;
+            font-size: 1.15rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-top: 40px;
+            transition: all 0.3s ease;
+        }
+        .btn-main:hover {
+            background: var(--landlord-accent);
+            border-color: var(--landlord-accent);
+            color: white;
+        }
+
+        /* 微調 Flatpickr 內聯日曆樣式以契合報紙直角風 */
+        .flatpickr-calendar.inline {
+            border: 1px solid var(--border-line) !important;
+            border-radius: 0px !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+        }
+
+        @media (max-width: 720px) {
+            .card { margin: 0 14px; padding: 30px 20px; box-sizing: border-box; }
+            .layout { flex-direction: column; gap: 24px; }
+            .policy-grid { grid-template-columns: 1fr; gap: 4px; }
+            .flatpickr-calendar.inline { max-width: 100%; }
+        }
+    </style>
+</head>
+
+<body>
+{% set nav_active = 'provider' %}
+{% include '_member_nav.html' %}
+
+<!-- 💡 完美呼應 image_01c19c.png 結構的大置中第二步主標題與精緻下底線 -->
+<div style="text-align: center; margin-top: 50px; margin-bottom: 40px;">
+    <h1 style="font-family: 'Playfair Display', 'Noto Sans TC', serif; font-size: 2.2rem; font-weight: 900; color: var(--text-charcoal); margin: 0 auto; letter-spacing: -1px; display: inline-block; position: relative;">
+        第二步：設定時段與定價
+    </h1>
+    <!-- 復古報紙裝飾橫線，完美複製第一步地圖頁面的經典視覺細節 -->
+    <div style="width: 100px; height: 2px; background: var(--text-charcoal); margin: 15px auto 0 auto;"></div>
+</div>
+
+<div class="card">
+    <p style="color: #555; font-weight: 600; margin: 0; text-align: center; font-size: 1.05rem;">
+        先決定出租單位，再為每個開放日期設定時間與價格
+    </p>
+
+    <form method="POST" id="main-form">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+
+        <section class="policy-panel" aria-labelledby="policy-title">
+            <div class="policy-grid">
+                <div>
+                    <label id="policy-title" for="booking_mode">出租方式</label>
+                    <select id="booking_mode" name="booking_mode" onchange="changeBookingMode()" required>
+                        <option value="hourly"{% if stall.booking_mode == 'hourly' %} selected{% endif %}>按小時出租</option>
+                        <option value="daily"{% if stall.booking_mode == 'daily' %} selected{% endif %}>整日出租（不可拆分）</option>
+                    </select>
+                </div>
+                <div id="minimum-hours-field">
+                    <label for="minimum_booking_hours">每次最低預約時數</label>
+                    <select id="minimum_booking_hours" name="minimum_booking_hours">
+                        {% for minimum in (1, 2, 3) %}
+                            <option value="{{ minimum }}"{% if stall.minimum_booking_hours == minimum %} selected{% endif %}>至少 {{ minimum }} 小時</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <p class="policy-help" id="policy-help"></p>
+        </section>
+
+        <div class="layout">
+            <div class="side">
+                <label>1. 選擇日期</label>
+                <div id="calendar-area"></div>
+                <input type="hidden" name="rental_date" id="date_input">
+            </div>
+
+            <div class="side">
+                <label>2. 設定時段 (幾點到幾點)</label>
+                <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 5px;">
+                    <select id="start_h">
+                        {% for h in hours %}
+                            <option value="{{ h }}">{{ h }}:00</option>
+                        {% endfor %}
+                    </select>
+                    <span style="font-weight: bold; margin-bottom: 20px;">~</span>
+                    <select id="end_h">
+                        {% for h in hours %}
+                            <option value="{{ h + 1 }}">{{ h + 1 }}:00</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <label id="price-label" for="price_input">3. 每小時定價 (NT$)</label>
+                <input type="number" id="price_input" min="1" step="1" placeholder="例如: 500">
+
+                <button type="button" class="btn-add" onclick="addItem()">＋ 加入清單</button>
+
+                <div id="preview-list" style="margin-top: 30px; border-top: 1px solid var(--border-line); padding-top: 20px;">
+                    <p style="color: #777; text-align: center; font-style: italic;">尚未加入時段</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="hidden-inputs-container"></div>
+
+        <button type="submit" class="btn-main">🚀 確認並正式發佈</button>
+    </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script>
+    // 初始化內聯日曆
+    flatpickr("#calendar-area", {
+        inline: true,
+        minDate: "today",
+        dateFormat: "Y-m-d",
+        onChange: function(selectedDates, dateStr) {
+            document.getElementById('date_input').value = dateStr;
+        }
+    });
+
+    let queue = {};
+    let activeMode = document.getElementById('booking_mode').value;
+
+    function updatePolicyUI() {
+        const isDaily = activeMode === 'daily';
+        const minimumField = document.getElementById('minimum-hours-field');
+        const minimumSelect = document.getElementById('minimum_booking_hours');
+        minimumField.style.opacity = isDaily ? '0.45' : '1';
+        minimumSelect.disabled = isDaily;
+        document.getElementById('policy-help').textContent = isDaily
+            ? '租客只能預約完整開放時段。價格是整段時段的固定總價，不會再乘上時數。'
+            : '租客可選擇連續時段，總價會以每個已選小時的價格相加，且必須符合最低預約時數。';
+        document.getElementById('price-label').textContent = isDaily
+            ? '3. 整日時段固定總價 (NT$)'
+            : '3. 每小時定價 (NT$)';
+        document.getElementById('price_input').placeholder = isDaily
+            ? '例如: 3600（完整時段總價）'
+            : '例如: 500（每小時）';
+    }
+
+    function changeBookingMode() {
+        const select = document.getElementById('booking_mode');
+        const nextMode = select.value;
+        if (Object.keys(queue).length > 0 && !confirm('切換出租方式會清空已加入的時段，確定繼續嗎？')) {
+            select.value = activeMode;
+            return;
+        }
+        queue = {};
+        activeMode = nextMode;
+        updatePolicyUI();
+        render();
+    }
+
+    function addItem() {
+        const d = document.getElementById('date_input').value;
+        const s = parseInt(document.getElementById('start_h').value);
+        const e = parseInt(document.getElementById('end_h').value);
+        const p = parseInt(document.getElementById('price_input').value);
+
+        if (!d) return alert("請先選擇日期！");
+        if (!p || p <= 0) return alert("請填寫有效金額！");
+        if (s >= e) return alert("時間設定錯誤！(開始時間必須早於結束時間)");
+
+        if (activeMode === 'daily') {
+            Object.keys(queue)
+                .filter(key => queue[key].date === d)
+                .forEach(key => delete queue[key]);
+            queue[`${d}_day`] = {
+                date: d,
+                hour: s,
+                duration_hours: e - s,
+                price: p
+            };
+        } else {
+            for (let i = s; i < e; i++) {
+                queue[`${d}_${i}`] = {
+                    date: d,
+                    hour: i,
+                    duration_hours: 1,
+                    price: p
+                };
+            }
+        }
+        render();
+    }
+
+    function removeItem(key) {
+        delete queue[key];
+        render();
+    }
+
+    function render() {
+        const list = document.getElementById('preview-list');
+        const container = document.getElementById('hidden-inputs-container');
+
+        container.innerHTML = '';
+
+        const keys = Object.keys(queue).sort((a, b) => {
+            const itemA = queue[a];
+            const itemB = queue[b];
+            if (itemA.date !== itemB.date) {
+                return itemA.date.localeCompare(itemB.date);
+            }
+            return itemA.hour - itemB.hour;
+        });
+
+        if (keys.length === 0) {
+            list.innerHTML = '<p style="color: #777; text-align: center; font-style: italic;">尚未加入時段</p>';
+            return;
+        }
+
+        let htmlContent = '<strong style="display: block; margin-bottom: 15px; font-family: \'Playfair Display\', serif; font-style: italic;">Selected Slots / 已加入的時段清單：</strong>';
+
+        keys.forEach(key => {
+            const item = queue[key];
+            const priceUnit = activeMode === 'daily' ? '整日時段總價' : '每小時';
+
+            htmlContent += `
+                <div class="preview-item">
+                    <span style="font-weight: 600;">📅 ${item.date} &nbsp;|&nbsp; ⏰ ${item.hour}:00 - ${item.hour + item.duration_hours}:00</span>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <b style="color: var(--text-charcoal); font-family: 'Playfair Display', serif; font-size: 1.1rem; font-style: italic;">$${item.price} <small>${priceUnit}</small></b>
+                        <button type="button" style="background: none; border: none; color: #ff4d4f; cursor: pointer; font-size: 1.1rem; padding: 0 5px;" onclick="removeItem('${key}')" title="刪除">❌</button>
+                    </div>
+                </div>`;
+        });
+
+        list.innerHTML = htmlContent;
+
+        const slotsArray = keys.map(key => queue[key]);
+
+        const jsonInput = document.createElement('input');
+        jsonInput.type = 'hidden';
+        jsonInput.name = 'slots_json';
+        jsonInput.value = JSON.stringify(slotsArray);
+        container.appendChild(jsonInput);
+    }
+
+    document.getElementById('main-form').onsubmit = function(e) {
+        const keys = Object.keys(queue);
+        if (keys.length === 0) {
+            alert("請至少加入一個預約時段檔期！");
+            e.preventDefault();
+            return false;
+        }
+        if (activeMode === 'hourly') {
+            const minimumHours = parseInt(document.getElementById('minimum_booking_hours').value);
+            const hoursByDate = keys.reduce((groups, key) => {
+                const item = queue[key];
+                if (!groups[item.date]) groups[item.date] = [];
+                groups[item.date].push(item.hour);
+                return groups;
+            }, {});
+            const hasShortDate = Object.values(hoursByDate).some(hours => {
+                const ordered = [...new Set(hours)].sort((a, b) => a - b);
+                let longestRun = 0;
+                let currentRun = 0;
+                ordered.forEach((hour, index) => {
+                    currentRun = index > 0 && hour === ordered[index - 1] + 1
+                        ? currentRun + 1
+                        : 1;
+                    longestRun = Math.max(longestRun, currentRun);
+                });
+                return longestRun < minimumHours;
+            });
+            if (hasShortDate) {
+                alert(`每個日期都必須提供至少 ${minimumHours} 個連續小時。`);
+                e.preventDefault();
+                return false;
+            }
+        }
+    };
+
+    updatePolicyUI();
+</script>
+</body>
+</html>

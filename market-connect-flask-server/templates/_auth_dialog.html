@@ -1,0 +1,23 @@
+<dialog
+    class="auth-dialog"
+    id="auth-dialog"
+    aria-labelledby="auth-dialog-title"
+    data-tenant-google="{{ url_for('web_auth.google_login', role='Tenant') }}"
+    data-landlord-google="{{ url_for('web_auth.google_login', role='Landlord') }}"
+>
+    <div class="auth-dialog-inner">
+        <div class="auth-dialog-topline">
+            <p class="auth-dialog-label">Sign in to continue</p>
+            <form method="dialog">
+                <button class="auth-dialog-close" aria-label="關閉登入視窗">×</button>
+            </form>
+        </div>
+        <h2 id="auth-dialog-title">登入後預約</h2>
+        <p class="auth-dialog-copy" id="auth-dialog-copy">攤位資訊保持公開；送出預約時才需要帳戶。</p>
+        <div class="auth-dialog-actions">
+            <a class="auth-dialog-action primary google" id="auth-google-link" href="#"><span>G</span>使用 Google 登入 / 註冊</a>
+        </div>
+        <p class="auth-dialog-footnote">首次登入後必須設定暱稱、生日、姓名與聯絡電話。</p>
+    </div>
+</dialog>
+<script src="{{ url_for('static', filename='auth-dialog.js') }}"></script>
