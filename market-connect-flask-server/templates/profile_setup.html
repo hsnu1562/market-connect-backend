@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SPACIS | 個人資料</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,600;1,600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
     <style>
         :root {
             --paper: #f4f0e4;
@@ -21,7 +22,6 @@
         body {
             min-height: 100vh;
             margin: 0;
-            padding: 48px 22px;
             color: var(--ink);
             background:
                 linear-gradient(rgba(49, 92, 69, 0.08) 1px, transparent 1px),
@@ -30,6 +30,8 @@
             background-size: 28px 28px;
             font-family: 'Noto Sans TC', sans-serif;
         }
+
+        .profile-page { padding: 48px 22px; }
 
         .sheet {
             width: min(940px, 100%);
@@ -204,7 +206,7 @@
         }
 
         @media (max-width: 720px) {
-            body { padding: 22px 14px; }
+            .profile-page { padding: 22px 14px; }
             .sheet { box-shadow: 7px 7px 0 rgba(23, 26, 23, 0.22); }
             .sheet-header, .sheet-body { grid-template-columns: 1fr; }
             .sheet-header { padding: 28px 24px; }
@@ -216,6 +218,9 @@
     </style>
 </head>
 <body>
+    {% set nav_active = 'profile' %}
+    {% include '_member_nav.html' %}
+    <div class="profile-page">
     <main class="sheet">
         <header class="sheet-header">
             <div>
@@ -284,13 +289,7 @@
             </form>
         </div>
 
-        <footer class="footer-actions">
-            <a href="{{ url_for('web_auth.index') }}">返回攤位首頁</a>
-            <form method="POST" action="{{ url_for('web_auth.logout') }}">
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-                <button class="logout" type="submit">登出目前帳戶</button>
-            </form>
-        </footer>
     </main>
+    </div>
 </body>
 </html>

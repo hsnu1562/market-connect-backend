@@ -52,9 +52,7 @@ def stall_list():
         not_logged_in=False,
         can_book=can_book,
         account_url=(
-            url_for("web_auth.profile_setup")
-            if tenant is not None
-            else url_for(
+            url_for(
                 "web_auth.account",
                 intent="tenant",
                 next=url_for("web_stalls.stall_list"),

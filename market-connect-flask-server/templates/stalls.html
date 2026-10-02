@@ -8,6 +8,7 @@
     <!-- 引入 Miranda 網站靈魂字體 -->
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='auth-dialog.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
     <style>
         :root {
             --bg-paper: #fcfaf2;
@@ -86,7 +87,7 @@
             max-width: 1000px;
             margin: 40px auto;
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 450px), 1fr));
             gap: 30px;
             padding: 0 20px 100px;
         }
@@ -122,10 +123,23 @@
         .booking-btn:hover { background: var(--accent-pink); }
 
         .no-data { text-align: center; padding: 50px; font-style: italic; color: #888; }
+
+        @media (max-width: 620px) {
+            .header { padding: 40px 16px; }
+            .header h1 { font-size: 2.35rem; }
+            .filter-box input { width: 100%; max-width: 300px; box-sizing: border-box; }
+            .stall-container { margin-top: 20px; padding: 0 14px 70px; }
+            .stall-card { padding: 24px 18px; }
+            .navbar { padding: 16px 14px !important; gap: 18px; }
+            .navbar .user-info { gap: 10px !important; font-size: 0.85rem !important; }
+        }
     </style>
 </head>
 <body>
-
+    {% if navigation_user %}
+        {% set nav_active = 'marketplace' %}
+        {% include '_member_nav.html' %}
+    {% else %}
     <nav class="navbar" style="background: #161616; padding: 20px 50px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
     <!-- 根據 image_00d1fd.png 調整的商標樣式，保留跳轉租客大廳的功能 -->
     <a href="{% if can_book %}/tenant/hub/{{ user_id }}/{% else %}/{% endif %}" class="logo" style="font-family: 'Playfair Display', serif; font-size: 1.8rem; font-weight: 700; font-style: italic; color: #ffffff; text-decoration: none;">
@@ -142,6 +156,7 @@
         {% endif %}
     </div>
 </nav>
+    {% endif %}
 
     {% if not_logged_in %}
         <div class="no-data"><h1>請先登入以探索市集空間</h1></div>

@@ -9,7 +9,7 @@ from .api import register_api_blueprints
 from .cli import register_cli
 from .extensions import db, migrate, oauth
 from .filters import register_template_filters
-from .security import csrf_token, validate_csrf_token
+from .security import csrf_token, get_current_user, validate_csrf_token
 from .web import register_web_blueprints
 
 
@@ -99,6 +99,10 @@ def create_app(config: dict | None = None) -> Flask:
         client_kwargs={"scope": "openid email profile"},
     )
     app.jinja_env.globals["csrf_token"] = csrf_token
+
+    @app.context_processor
+    def inject_member_navigation():
+        return {"navigation_user": get_current_user()}
 
     @app.before_request
     def protect_state_changing_requests():

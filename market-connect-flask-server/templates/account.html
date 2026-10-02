@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SPACIS | 帳戶入口</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
     <style>
         :root {
             --paper: #fcfaf2;
@@ -19,7 +20,6 @@
         body {
             min-height: 100vh;
             margin: 0;
-            padding: 48px 24px;
             color: var(--ink);
             background:
                 linear-gradient(135deg, rgba(74, 124, 89, 0.1), transparent 42%),
@@ -27,6 +27,8 @@
                 var(--paper);
             font-family: 'Noto Sans TC', sans-serif;
         }
+
+        .account-page { padding: 48px 24px; }
 
         .shell { max-width: 980px; margin: 0 auto; }
 
@@ -157,7 +159,7 @@
         }
 
         @media (max-width: 680px) {
-            body { padding: 32px 20px; }
+            .account-page { padding: 32px 20px; }
             .account-grid { grid-template-columns: 1fr; }
             .account-card { min-height: 0; box-shadow: 6px 6px 0 var(--ink); }
             .card-copy { min-height: 0; }
@@ -165,6 +167,15 @@
     </style>
 </head>
 <body>
+    {% if intent == 'tenant' %}
+        {% set nav_active = 'tenant' %}
+    {% elif intent == 'landlord' %}
+        {% set nav_active = 'provider' %}
+    {% else %}
+        {% set nav_active = 'profile' %}
+    {% endif %}
+    {% include '_member_nav.html' %}
+    <div class="account-page">
     <main class="shell">
         <p class="eyebrow">SPACIS Account</p>
         <h1>一個 Google 帳戶，兩種使用方式</h1>
@@ -234,5 +245,6 @@
 
         <a class="return-link" href="{{ url_for('web_auth.index') }}">返回 SPACIS 首頁</a>
     </main>
+    </div>
 </body>
 </html>

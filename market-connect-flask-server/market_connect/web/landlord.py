@@ -162,4 +162,4 @@ def publish_success():
     user = get_current_user()
     if user is None:
         abort(401)
-    return render_template("publish_success.html", user_id=user.id)
+    return render_template("publish_success.html", user=user)

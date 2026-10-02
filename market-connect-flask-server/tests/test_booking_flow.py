@@ -193,6 +193,75 @@ def test_complete_booking_flow(app, client):
     assert b'name="user_id"' not in response.data
 
 
+def test_tenant_navigation_stays_available_across_member_pages(app, client):
+    with app.app_context():
+        tenant = User.query.filter_by(username="tenant1").one()
+
+    with client.session_transaction() as session:
+        session["user_id"] = tenant.id
+
+    expected_links = (
+        'href="/"',
+        'href="/stalls/"',
+        f'href="/tenant/hub/{tenant.id}/"',
+        'href="/account/profile/"',
+    )
+    for path in (f"/tenant/hub/{tenant.id}/", "/stalls/", "/account/profile/"):
+        response = client.get(path)
+
+        assert response.status_code == 200
+        assert response.data.count(b'class="mc-nav"') == 1
+        assert b'<details class="mc-nav__mobile">' in response.data
+        for expected_link in expected_links:
+            assert expected_link.encode() in response.data
+
+    hub_response = client.get(f"/tenant/hub/{tenant.id}/")
+    assert 'aria-current="page">租客中心'.encode() in hub_response.data
+    assert "開通出租".encode() in hub_response.data
+
+
+def test_provider_can_enable_tenant_navigation_without_dead_end(app, client):
+    with app.app_context():
+        landlord = User.query.filter_by(username="landlord1").one()
+        stall = Stall.query.filter_by(loc_name="Huashan Stall A").one()
+
+    with client.session_transaction() as session:
+        session["user_id"] = landlord.id
+        session["_csrf_token"] = "navigation-test-token"
+
+    for path in (
+        f"/landlord/hub/{landlord.id}/",
+        f"/landlord/{landlord.id}/",
+        f"/stall_pricing/{stall.id}/",
+        f"/landlord/history/{landlord.id}/",
+        "/publish_success/",
+    ):
+        response = client.get(path)
+
+        assert response.status_code == 200
+        assert response.data.count(b'class="mc-nav"') == 1
+        assert f'href="/landlord/hub/{landlord.id}/"'.encode() in response.data
+        assert b'intent=tenant' in response.data
+
+    activation_page = client.get("/account/?intent=tenant")
+    assert activation_page.status_code == 200
+    assert "啟用租客功能".encode() in activation_page.data
+    assert 'aria-current="page">+ 開通租客'.encode() in activation_page.data
+
+    response = client.post(
+        "/account/roles/Tenant",
+        data={"_csrf_token": "navigation-test-token", "next": "/stalls/"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith("/stalls/")
+
+    marketplace = client.get("/stalls/")
+    assert marketplace.status_code == 200
+    assert f'href="/tenant/hub/{landlord.id}/"'.encode() in marketplace.data
+    assert f'href="/booking_page/{stall.id}/{landlord.id}/"'.encode() in marketplace.data
+
+
 def test_api_booking_flow(app, client):
     with app.app_context():
         tenant = User.query.filter_by(username="tenant1").one()

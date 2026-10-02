@@ -2,8 +2,10 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SPACIS | 預約確認單</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
     <style>
         :root { 
             --bg-paper: #fcfaf2; 
@@ -13,8 +15,17 @@
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
             background-color: var(--bg-paper); 
-            margin: 0; color: var(--text-charcoal); 
-            display: flex; justify-content: center; align-items: center; min-height: 100vh; 
+            margin: 0; color: var(--text-charcoal);
+            min-height: 100vh;
+        }
+
+        .success-page {
+            min-height: calc(100vh - 75px);
+            padding: 40px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-sizing: border-box;
         }
 
         /* 💡 核心視覺：報刊式雙實線框 */
@@ -25,6 +36,7 @@
             border-radius: 0px;
             padding: 60px; 
             text-align: center;
+            box-sizing: border-box;
         }
 
         h2 { 
@@ -67,10 +79,20 @@
             transition: all 0.3s;
         }
         .action-btn:hover { background: var(--text-charcoal); color: white; }
+
+        @media (max-width: 620px) {
+            .success-page { padding: 28px 14px; }
+            .success-container { width: 100%; padding: 38px 20px; }
+            h2 { font-size: 2.1rem; }
+            .details-row { align-items: flex-start; gap: 20px; }
+            .details-row span:last-child { text-align: right; }
+        }
     </style>
 </head>
 <body>
-
+    {% set nav_active = 'tenant' %}
+    {% include '_member_nav.html' %}
+    <main class="success-page">
     <div class="success-container">
         <h2>預約確認單</h2>
         <p style="font-weight: 600; margin-bottom: 30px;">您的預約已正式生效。</p>
@@ -92,6 +114,7 @@
             <a href="/stalls/" class="action-btn" style="background: var(--text-charcoal); color: white;">繼續瀏覽攤位</a>
         </div>
     </div>
+    </main>
 
 <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <script>

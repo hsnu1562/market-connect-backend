@@ -2,10 +2,12 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SPACIS | 檔期定價管理</title>
     <!-- 引入 Flatpickr 樣式與 Miranda 網站靈魂：古典優雅的襯線字體 Playfair Display -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
     <style>
         :root { 
             --bg-paper: #fcfaf2; /* 💡 靈魂：高雅的復古再生紙米白色 */
@@ -134,20 +136,18 @@
             box-shadow: none !important;
             background: #ffffff !important;
         }
+
+        @media (max-width: 720px) {
+            .card { margin: 0 14px; padding: 30px 20px; box-sizing: border-box; }
+            .layout { flex-direction: column; gap: 24px; }
+            .flatpickr-calendar.inline { max-width: 100%; }
+        }
     </style>
 </head>
 
 <body>
-
-<!-- 💡 現在 navbar 有了完整的樣式，會呈現漂亮的高級深炭黑背景 -->
-<nav class="navbar">
-    <a href="/landlord/hub/{{ user.id }}/" class="logo">✨ SPACIS</a>
-    <div class="user-info">
-        <a href="{{ url_for('web_auth.profile_setup') }}" style="display: inline-block; padding: 6px 10px; border: 1px solid currentColor; color: inherit; text-decoration: none;">👤 個人資料: <b>{{ user.display_name }}</b></a>
-        <span>🏷️ 角色: <b>{{ user.role }}</b></span>
-        <span>⭐ 評分: <b>{{ user.reputation_score }} ★</b></span>
-    </div>
-</nav>
+{% set nav_active = 'provider' %}
+{% include '_member_nav.html' %}
 
 <!-- 💡 完美呼應 image_01c19c.png 結構的大置中第二步主標題與精緻下底線 -->
 <div style="text-align: center; margin-top: 50px; margin-bottom: 40px;">
