@@ -64,9 +64,14 @@ def test_initial_migration_upgrades_legacy_user_schema(tmp_path):
         assert {"auth_identity", "user_role"}.issubset(inspector.get_table_names())
         user_columns = {column["name"]: column for column in inspector.get_columns("user")}
         assert user_columns["password_hash"]["nullable"] is True
-        assert {"status", "created_at", "updated_at", "profile_completed_at"}.issubset(
-            user_columns
-        )
+        assert {
+            "status",
+            "created_at",
+            "updated_at",
+            "profile_completed_at",
+            "nickname",
+            "birth_date",
+        }.issubset(user_columns)
         membership = db.session.execute(
             text("SELECT user_id, role FROM user_role WHERE user_id = 1")
         ).one()
@@ -85,4 +90,4 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
         upgrade(directory=str(MIGRATIONS_DIR))
 
         revision = db.session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        assert revision == "20261002_02"
+        assert revision == "20261002_03"

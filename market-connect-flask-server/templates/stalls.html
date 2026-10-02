@@ -134,7 +134,7 @@
 
     <div class="user-info" style="display: flex; gap: 25px; align-items: center; color: #a3b1c2; font-size: 1rem; font-weight: 500;">
         {% if can_book %}
-            <span>👤 帳號: <b>{{ tenant_username }}</b></span>
+            <a href="{{ profile_url }}" style="display: inline-block; padding: 6px 10px; border: 1px solid currentColor; color: inherit; text-decoration: none;">👤 個人資料: <b>{{ tenant_display_name }}</b></a>
             <span>🏷️ 角色: <b>Tenant</b></span>
             <span style="color: #ffb703;">⭐ 評分: <b>{{ tenant_reputation }} ★</b></span>
         {% else %}

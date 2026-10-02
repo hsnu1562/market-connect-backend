@@ -176,7 +176,7 @@
     <nav class="navbar">
         <a href="/" class="logo">✨ SPACIS</a>
         <div class="user-info">
-            <span>👤 帳號: <b>{{ user.username }}</b></span>
+            <a href="{{ url_for('web_auth.profile_setup') }}" style="display: inline-block; padding: 6px 10px; border: 1px solid currentColor; color: inherit; text-decoration: none;">👤 個人資料: <b>{{ user.display_name }}</b></a>
             <span>🏷️ 角色: <b>{{ user.role }}</b></span>
             <span>⭐ 評分: <b>{{ user.reputation_score }} ★</b></span>
         </div>
@@ -187,7 +187,7 @@
         <!-- 💡 報紙頭版引言風 Header -->
         <div class="hub-header">
             <h1 class="hub-title">Landlord Station</h1>
-            <div class="hub-subtitle">攤主 <span>{{ user.username }}</span>，歡迎回到首頁</div>
+            <div class="hub-subtitle">攤主 <span>{{ user.display_name }}</span>，歡迎回到首頁</div>
         </div>
         
         <!-- 💡 雙欄實線幾何大網格區塊 -->

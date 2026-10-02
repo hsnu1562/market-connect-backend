@@ -46,11 +46,20 @@ def stall_list():
         "stalls.html",
         stalls=stalls,
         user_id=tenant.id if tenant is not None else None,
-        tenant_username=tenant.username if tenant is not None else None,
+        tenant_display_name=tenant.display_name if tenant is not None else None,
         tenant_reputation=tenant.reputation_score if tenant is not None else None,
+        profile_url=url_for("web_auth.profile_setup"),
         not_logged_in=False,
         can_book=can_book,
-        account_url=url_for("web_auth.account", intent="tenant", next=url_for("web_stalls.stall_list")),
+        account_url=(
+            url_for("web_auth.profile_setup")
+            if tenant is not None
+            else url_for(
+                "web_auth.account",
+                intent="tenant",
+                next=url_for("web_stalls.stall_list"),
+            )
+        ),
         stalls_json=json.dumps(stalls_data, ensure_ascii=False),
     )
 

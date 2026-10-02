@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -74,6 +74,8 @@ def register_local_user(
 def update_user_profile(
     user: User,
     *,
+    nickname: str,
+    birth_date: str,
     first_name: str,
     last_name: str,
     phone_number: str,
@@ -81,9 +83,11 @@ def update_user_profile(
     """Validate and persist the personal details collected after Google login."""
 
     try:
+        user.nickname = _clean_nickname(nickname)
+        user.birth_date = _clean_birth_date(birth_date)
         user.first_name = _clean_name(first_name, "名字")
         user.last_name = _clean_name(last_name, "姓氏")
-        user.phone_number = _clean_optional_phone_number(phone_number)
+        user.phone_number = _clean_phone_number(phone_number)
     except RegistrationError as error:
         raise ProfileError(str(error)) from error
 
@@ -154,11 +158,23 @@ def _clean_phone_number(value: str) -> str:
     return phone_number
 
 
-def _clean_optional_phone_number(value: str) -> str | None:
-    phone_number = value.strip() if isinstance(value, str) else ""
-    if not phone_number:
-        return None
-    return _clean_phone_number(phone_number)
+def _clean_nickname(value: str) -> str:
+    nickname = " ".join(value.split()) if isinstance(value, str) else ""
+    if not 1 <= len(nickname) <= 50:
+        raise RegistrationError("暱稱必須介於 1 到 50 個字元。")
+    return nickname
+
+
+def _clean_birth_date(value: str) -> date:
+    try:
+        birthday = date.fromisoformat(value)
+    except (TypeError, ValueError) as error:
+        raise RegistrationError("請輸入有效的生日。") from error
+
+    today = date.today()
+    if birthday > today or birthday < date(today.year - 120, 1, 1):
+        raise RegistrationError("請輸入有效的生日。")
+    return birthday
 
 
 def _validate_password(value: str) -> None:

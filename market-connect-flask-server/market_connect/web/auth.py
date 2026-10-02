@@ -107,7 +107,11 @@ def index():
         stats=stats,
         current_user=current_user,
         provider_url=provider_url,
-        account_url=url_for("web_auth.account"),
+        account_url=(
+            url_for("web_auth.profile_setup")
+            if current_user is not None
+            else url_for("web_auth.account")
+        ),
     )
 
 
@@ -237,6 +241,8 @@ def profile_setup():
         None,
     )
     form_data = {
+        "nickname": user.nickname or "",
+        "birth_date": user.birth_date.isoformat() if user.birth_date else "",
         "first_name": user.first_name or "",
         "last_name": user.last_name or "",
         "phone_number": user.phone_number or "",
@@ -262,7 +268,7 @@ def profile_setup():
         next_url=next_url or "",
         form_data=form_data,
         error=error,
-        is_first_setup=user.profile_completed_at is None,
+        is_first_setup=user.needs_profile_completion,
     )
 
 

@@ -106,7 +106,8 @@ def test_homepage_links_tenant_to_booking(app, client):
 
     assert response.status_code == 200
     assert f'href="{booking_url}"'.encode() in response.data
-    assert b"tenant1" in response.data
+    assert b"Tenant One" in response.data
+    assert b'href="/account/profile/"' in response.data
 
 
 def test_templates_use_spacis_brand():

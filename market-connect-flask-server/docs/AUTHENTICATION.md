@@ -5,8 +5,10 @@ information is public. Authentication is required only when a visitor reserves
 a stall, publishes a stall, or opens account-owned records.
 
 After the first successful Google callback, the user must complete a profile
-sheet before entering protected tools. First and last names are required. A
-phone number is optional, unverified, and never accepted as a login method.
+sheet before entering protected tools. Nickname, birthday, first and last
+names, and telephone are required. The nickname is public. Birthday and
+telephone remain private account/contact data. Telephone is unverified and is
+never accepted as a login method.
 
 One user can hold both roles:
 
@@ -49,10 +51,13 @@ Google logout does not sign the user out of Google globally.
 
 ## Identity Data
 
-`user` stores the SPACIS profile. `profile_completed_at` is null until a Google
-user submits the required profile sheet. `password_hash` is null for
-Google-only accounts. The original `role` column remains as a primary/legacy
-role so existing data and templates remain compatible.
+`user` stores the SPACIS profile, including public `nickname`, private
+`birth_date`, and contact `phone_number`. `profile_completed_at` is null until a
+Google user submits every required field. The application also validates the
+fields themselves, so an old timestamp cannot bypass onboarding.
+`password_hash` is null for Google-only accounts. The original `role` column
+remains as a primary/legacy role so existing data and templates remain
+compatible.
 
 `user_role` stores all account roles with a composite primary key of
 `(user_id, role)`.
@@ -189,6 +194,8 @@ The tracked authentication migrations:
 - creates `user_role` and backfills every existing user's current role;
 - creates `auth_identity` with a provider/subject uniqueness constraint.
 - adds `profile_completed_at` and marks existing non-Google accounts complete.
+- adds nickname and birthday, then reopens onboarding for Google accounts that
+  do not contain every required personal field.
 
 Run `init-db` before `db upgrade` during this transitional migration. The
 tracked migration handles both the existing PostgreSQL schema and a fresh local
@@ -215,8 +222,10 @@ depend on Google connectivity.
 - Sessions contain only the internal `user_id` plus Flask's permanence marker.
 - Incomplete Google profiles are redirected to `/account/profile` before any
   protected tenant or provider workflow.
-- Phone numbers are optional contact data. They are not verified identities and
-  cannot be used to authenticate.
+- Telephone numbers are required contact data but are not verified identities
+  and cannot be used to authenticate.
+- Internal `google_*` usernames are database identifiers only. Browser pages
+  display the chosen nickname and link it to `/account/profile`.
 - Role membership never bypasses booking or stall ownership checks.
 - Accounts are not merged by email or display name.
 - Linking Google or LINE to an existing local account requires a future,

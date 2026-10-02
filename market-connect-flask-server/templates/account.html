@@ -229,7 +229,7 @@
         {% if current_user %}
             <a class="profile-link" href="{{ url_for('web_auth.profile_setup') }}">編輯個人資料</a>
         {% else %}
-            <p class="signin-note">目前只提供 Google 登入。SPACIS 不會儲存 Google 密碼；電話僅作為選填聯絡資料，尚未經 OTP 驗證，也不會用於登入。</p>
+            <p class="signin-note">目前只提供 Google 登入。首次登入必須設定暱稱、生日與聯絡電話。SPACIS 不會儲存 Google 密碼；電話尚未經 OTP 驗證，也不會用於登入。</p>
         {% endif %}
 
         <a class="return-link" href="{{ url_for('web_auth.index') }}">返回 SPACIS 首頁</a>

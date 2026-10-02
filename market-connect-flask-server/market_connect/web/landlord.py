@@ -92,9 +92,7 @@ def landlord_history(user_id: int):
             {
                 "booking_id": booking.id,
                 "stall_name": booking.slot.stall.loc_name,
-                "tenant_name": (
-                    f"{booking.user.first_name} {booking.user.last_name} ({booking.user.username})"
-                ),
+                "tenant_name": booking.user.display_name,
                 "tenant_phone": booking.user.phone_number,
                 "date": booking.slot.date.strftime("%Y-%m-%d"),
                 "time_list": [],

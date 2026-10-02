@@ -680,7 +680,7 @@
                 <a href="#availability" class="nav-link">找攤位</a>
                 <a href="{{ provider_url }}" class="nav-link"{% if not current_user %} data-auth-role="Landlord" data-auth-next=""{% endif %}>刊登攤位</a>
                 {% if current_user %}
-                    <a href="{{ account_url }}" class="nav-link outline">{{ current_user.username }} · 我的帳戶</a>
+                    <a href="{{ account_url }}" class="nav-link outline">{{ current_user.display_name }} · 個人資料</a>
                     <form action="{{ url_for('web_auth.logout') }}" method="POST" class="logout-form">
                         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="nav-link outline nav-button">登出</button>

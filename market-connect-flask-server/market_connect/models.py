@@ -13,6 +13,8 @@ class User(db.Model):
     password_hash = db.Column(db.String(255))
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
+    nickname = db.Column(db.String(50))
+    birth_date = db.Column(db.Date)
     phone_number = db.Column(db.String(20))
     # Retained as the primary/legacy role while UserRole stores all memberships.
     role = db.Column(db.String(20), nullable=False)
@@ -50,6 +52,8 @@ class User(db.Model):
 
     @property
     def display_name(self) -> str:
+        if self.nickname:
+            return self.nickname
         return " ".join(part for part in (self.first_name, self.last_name) if part).strip()
 
     @property
@@ -63,9 +67,18 @@ class User(db.Model):
 
     @property
     def needs_profile_completion(self) -> bool:
-        return self.profile_completed_at is None and any(
+        has_google_identity = any(
             identity.provider == "google" for identity in self.auth_identities
         )
+        required_profile_data = (
+            self.profile_completed_at,
+            self.nickname,
+            self.birth_date,
+            self.phone_number,
+            self.first_name,
+            self.last_name,
+        )
+        return has_google_identity and not all(required_profile_data)
 
     def __repr__(self) -> str:
         return f"<User {self.username} ({', '.join(sorted(self.role_names))})>"
