@@ -68,6 +68,7 @@ def create_app(config: dict | None = None) -> Flask:
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=is_production or _env_flag("SESSION_COOKIE_SECURE"),
         CSRF_PROTECT=True,
+        MAX_CONTENT_LENGTH=18 * 1024 * 1024,
     )
     if config:
         app.config.update(config)

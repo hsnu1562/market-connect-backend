@@ -18,6 +18,12 @@ class User(db.Model):
     phone_number = db.Column(db.String(20))
     # Retained as the primary/legacy role while UserRole stores all memberships.
     role = db.Column(db.String(20), nullable=False)
+    is_admin = db.Column(
+        db.Boolean,
+        default=False,
+        server_default=db.false(),
+        nullable=False,
+    )
     status = db.Column(db.String(20), default="active", server_default="active", nullable=False)
     reputation_score = db.Column(db.Float, default=5.0, nullable=False)
     created_at = db.Column(
@@ -48,6 +54,11 @@ class User(db.Model):
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="selectin",
+    )
+    certification_reviews = db.relationship(
+        "StallCertification",
+        back_populates="reviewed_by",
+        foreign_keys="StallCertification.reviewed_by_user_id",
     )
 
     @property
@@ -214,7 +225,7 @@ class StallCertification(db.Model):
     relationship_to_space = db.Column(db.String(40), nullable=False)
     proof_type = db.Column(db.String(40), nullable=False)
     proof_reference = db.Column(db.String(120))
-    evidence_url = db.Column(db.Text, nullable=False)
+    evidence_url = db.Column(db.Text)
     declaration_accepted = db.Column(
         db.Boolean,
         default=False,
@@ -235,13 +246,59 @@ class StallCertification(db.Model):
         nullable=False,
     )
     reviewed_at = db.Column(db.DateTime)
+    reviewed_by_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="SET NULL"),
+        index=True,
+    )
     reviewer_reference = db.Column(db.String(100))
     review_note = db.Column(db.Text)
 
     stall = db.relationship("Stall", back_populates="certification")
+    reviewed_by = db.relationship(
+        "User",
+        back_populates="certification_reviews",
+        foreign_keys=[reviewed_by_user_id],
+    )
+    documents = db.relationship(
+        "StallCertificationDocument",
+        back_populates="certification",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="StallCertificationDocument.uploaded_at",
+    )
 
     def __repr__(self) -> str:
         return f"<StallCertification stall={self.stall_id} status={self.status}>"
+
+
+class StallCertificationDocument(db.Model):
+    __tablename__ = "stall_certification_document"
+
+    id = db.Column(db.Integer, primary_key=True)
+    certification_id = db.Column(
+        db.Integer,
+        db.ForeignKey("stall_certification.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    original_filename = db.Column(db.String(255), nullable=False)
+    content_type = db.Column(db.String(80), nullable=False)
+    byte_size = db.Column(db.Integer, nullable=False)
+    sha256 = db.Column(db.String(64), nullable=False)
+    nonce = db.Column(db.LargeBinary(12), nullable=False)
+    ciphertext = db.Column(db.LargeBinary, nullable=False)
+    uploaded_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(UTC),
+        server_default=db.func.now(),
+        nullable=False,
+    )
+
+    certification = db.relationship("StallCertification", back_populates="documents")
+
+    def __repr__(self) -> str:
+        return f"<StallCertificationDocument {self.original_filename!r}>"
 
 
 class Booking(db.Model):

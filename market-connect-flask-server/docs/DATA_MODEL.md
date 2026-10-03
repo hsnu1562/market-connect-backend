@@ -10,15 +10,20 @@ have been collected for research or provider outreach.
 
 These existing tables support the customer-facing service:
 
-- `user`: account profile, legacy primary role, status, and reputation.
+- `user`: account profile, legacy primary role, status, reputation, and a
+  non-self-assignable `is_admin` operations flag.
 - `user_role`: all role memberships; one user can be both renter and provider.
 - `auth_identity`: Google or future LINE identity keyed by provider subject.
 - `stall`: a provider-owned physical stall or rentable space. It records the
   indoor/outdoor environment, whether it rents hourly or as a complete daily
   period, and the 1/2/3-hour minimum for hourly reservations.
 - `stall_certification`: private legal/contact evidence and manual review state
-  for one stall. Missing, pending, and rejected certifications prevent public
-  discovery and booking; evidence links are never included in public payloads.
+  for one stall, including the reviewing admin. Missing, pending, and rejected
+  certifications prevent public discovery and booking; evidence links are never
+  included in public payloads.
+- `stall_certification_document`: encrypted uploaded evidence for a
+  certification, including safe display metadata, size, digest, AES-GCM nonce,
+  ciphertext, and upload time. Plaintext document bytes are never stored.
 - `slot`: one bookable period for a stall, including its date, start hour,
   duration, and price. In hourly mode each row is one hour and selected rows
   must be consecutive. In daily mode one row represents the entire indivisible

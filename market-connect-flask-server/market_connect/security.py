@@ -66,6 +66,29 @@ def login_required(*roles: str):
     return decorator
 
 
+def admin_required(view):
+    """Allow only signed-in accounts granted the non-public admin flag."""
+
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        user = get_current_user()
+        if user is None:
+            return redirect(url_for("web_auth.account", next=request.full_path.rstrip("?")))
+        if user.needs_profile_completion:
+            return redirect(
+                url_for(
+                    "web_auth.profile_setup",
+                    role=user.role,
+                    next=request.full_path.rstrip("?"),
+                )
+            )
+        if not user.is_admin or user.status != "active":
+            abort(403)
+        return view(*args, **kwargs)
+
+    return wrapped
+
+
 def require_current_user_id(user_id: int) -> User:
     """Ensure a path user ID belongs to the signed-in account."""
 

@@ -12,7 +12,7 @@ It preserves the prototype's main flows:
 
 - Google OIDC login with required first-login profile setup
 - tenant and landlord roles on the same user account
-- landlord stall publishing with manual certification approval
+- landlord stall publishing with encrypted document upload and manual admin approval
 - hourly minimum-duration and indivisible full-day pricing
 - tenant stall search
 - multi-slot booking with one QR code
@@ -119,7 +119,7 @@ Demo accounts after `seed-demo` are available only when
 - `market_connect/web/`: browser page routes for landlords and tenants.
 - `market_connect/services/`: shared booking, payment, review, and seed logic.
 - `market_connect/models.py`: SQLAlchemy models for users, stalls,
-  certifications, slots, bookings, prices, and reviews.
+  certifications and encrypted evidence, slots, bookings, prices, and reviews.
 - `templates/`: server-rendered frontend HTML files. They are frontend-facing,
   but they stay in this Flask backend repo because Flask renders them on the
   server with `render_template(...)`.
@@ -140,12 +140,28 @@ Demo accounts after `seed-demo` are available only when
 State-changing API calls require the signed-in Flask session and an
 `X-CSRF-Token` header. Read-only stall routes remain public.
 
+## Admin Review
+
+The private browser endpoint is `/admin/certifications/`. Grant access only to
+an existing trusted account; this flag is not available through registration:
+
+```bash
+python -m flask --app app set-admin USERNAME --enable
+```
+
+Use `--disable` to revoke it. Certification files are encrypted in PostgreSQL
+and downloaded only through an authenticated admin route. Keep `SECRET_KEY`
+stable because it is also used to derive the document-encryption key. Read
+[docs/STALL_CERTIFICATION.md](docs/STALL_CERTIFICATION.md) before reviewing or
+collecting documents.
+
 ## Notes
 
 - Google OIDC is the only production login method. Local username/password
   routes are disabled unless `LOCAL_AUTH_ENABLED=true`; use that switch only
-  for local demo testing. LINE login, phone OTP, automated document validation,
-  and payment-provider integration are not implemented yet.
+  for local demo testing. LINE login, phone OTP, malware scanning, automated
+  document authenticity checks, and payment-provider integration are not
+  implemented yet.
 - SQLite is used by default at `instance/market_connect.db` and is local-only.
 - `Booking.slot_id` is unique to prevent double-booking the same slot.
 - Web routes and `/api/v1` routes intentionally live in the same backend repo so

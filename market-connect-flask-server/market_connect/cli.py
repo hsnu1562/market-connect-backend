@@ -8,7 +8,7 @@ import click
 from flask import Flask
 
 from .extensions import db
-from .models import StallCertification
+from .models import StallCertification, User
 from .services.market_leads import import_market_leads_from_file
 from .services.seed import seed_demo_data
 
@@ -26,6 +26,22 @@ def register_cli(app: Flask) -> None:
             db.create_all()
             seed_demo_data()
         print("Seeded demo landlord, tenant, stall, and slots.")
+
+    @app.cli.command("set-admin")
+    @click.argument("username")
+    @click.option(
+        "--enable/--disable",
+        default=True,
+        help="Grant or revoke access to the private admin area.",
+    )
+    def set_admin_command(username: str, enable: bool) -> None:
+        user = User.query.filter_by(username=username).first()
+        if user is None:
+            raise click.ClickException("User account not found.")
+        user.is_admin = enable
+        db.session.commit()
+        state = "enabled" if enable else "disabled"
+        click.echo(f"Admin access {state} for {user.username}.")
 
     @app.cli.command("import-market-leads")
     @click.option(
@@ -76,14 +92,19 @@ def register_cli(app: Flask) -> None:
             return
 
         for certification in certifications:
-            evidence_host = urlsplit(certification.evidence_url).hostname or "invalid-url"
+            evidence_host = (
+                urlsplit(certification.evidence_url).hostname
+                if certification.evidence_url
+                else None
+            )
             click.echo(
                 f"stall_id={certification.stall_id} "
                 f"stall={certification.stall.loc_name!r} "
                 f"owner={certification.stall.owner.username!r} "
                 f"status={certification.status} "
                 f"submitted={certification.submitted_at.isoformat()} "
-                f"evidence_host={evidence_host}"
+                f"documents={len(certification.documents)} "
+                f"evidence_host={evidence_host or '-'}"
             )
 
     @app.cli.command("show-stall-certification")
@@ -100,7 +121,15 @@ def register_cli(app: Flask) -> None:
         click.echo(f"Relationship: {certification.relationship_to_space}")
         click.echo(f"Proof type: {certification.proof_type}")
         click.echo(f"Proof reference: {certification.proof_reference or '-'}")
-        click.echo(f"Private evidence URL: {certification.evidence_url}")
+        click.echo(f"Private evidence URL: {certification.evidence_url or '-'}")
+        click.echo(
+            "Uploaded documents: "
+            + (
+                ", ".join(document.original_filename for document in certification.documents)
+                if certification.documents
+                else "-"
+            )
+        )
         click.echo(f"Review note: {certification.review_note or '-'}")
 
     @app.cli.command("review-stall-certification")
@@ -123,11 +152,18 @@ def register_cli(app: Flask) -> None:
             raise click.ClickException("Certification not found for this stall.")
         if decision == "reject" and not note.strip():
             raise click.ClickException("A review note is required when rejecting a stall.")
+        if decision == "approve" and not (
+            certification.documents or certification.evidence_url
+        ):
+            raise click.ClickException("Certification has no evidence to review.")
+        if decision == "approve" and not certification.declaration_accepted:
+            raise click.ClickException("Certification declaration has not been accepted.")
         if not reviewer.strip():
             raise click.ClickException("Reviewer reference cannot be blank.")
 
         certification.status = "approved" if decision == "approve" else "rejected"
         certification.reviewed_at = datetime.now(UTC)
+        certification.reviewed_by_user_id = None
         certification.reviewer_reference = reviewer.strip()
         certification.review_note = note.strip() or None
         db.session.commit()

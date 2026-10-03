@@ -80,6 +80,10 @@
         .approved-card h2 { margin-top: 0; color: var(--green); }
         .approved-card p { color: var(--muted); line-height: 1.8; }
         .privacy { margin: 18px 0 0; color: var(--muted); font-size: 0.82rem; line-height: 1.7; }
+        .upload-box { padding: 18px; border: 1px dashed #807b70; background: #faf7ef; }
+        .upload-box input { padding: 10px; background: #fff; }
+        .document-list { margin: 12px 0 0; padding-left: 20px; color: var(--green); line-height: 1.8; }
+        .document-list small { color: var(--muted); }
         @media (max-width: 680px) {
             main { margin-top: 34px; }
             .heading, .form-grid { grid-template-columns: 1fr; }
@@ -128,7 +132,7 @@
                 <a class="continue-link" href="{{ url_for('web_landlord.stall_pricing', stall_id=stall.id) }}">繼續設定出租時段</a>
             </section>
         {% else %}
-            <form class="form-card" method="POST">
+            <form class="form-card" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
 
@@ -166,11 +170,28 @@
                         <input id="proof_reference" name="proof_reference" maxlength="120" value="{{ request.form.get('proof_reference', certification.proof_reference if certification and certification.proof_reference else '') }}">
                     </div>
                     <div class="field full">
+                        <div class="upload-box">
+                            <label for="evidence_documents">
+                                上傳證明文件
+                                <small>最多 {{ max_documents }} 份；每份上限 5 MB；接受 PDF、JPG、PNG。檔案會加密保存，只有授權管理員可下載審核。</small>
+                            </label>
+                            <input id="evidence_documents" name="evidence_documents" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" multiple>
+                            {% if certification and certification.documents %}
+                                <ul class="document-list">
+                                    {% for document in certification.documents %}
+                                        <li>{{ document.original_filename }} <small>({{ (document.byte_size / 1024)|round(1) }} KB)</small></li>
+                                    {% endfor %}
+                                </ul>
+                                <small>若重新選擇檔案送出，上述文件會整批替換；未選擇則保留原文件。</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="field full">
                         <label for="evidence_url">
-                            私密證明文件連結
-                            <small>請提供審核人員可開啟的 HTTPS 連結，例如限制存取的雲端硬碟檔案。此連結不會出現在公開頁面或 API。</small>
+                            私密證明文件連結（選填）
+                            <small>也可補充審核人員可開啟的 HTTPS 雲端文件。上傳檔案或連結至少需提供一種，且都不會出現在公開頁面或 API。</small>
                         </label>
-                        <input id="evidence_url" name="evidence_url" type="url" maxlength="2000" placeholder="https://..." required value="{{ request.form.get('evidence_url', certification.evidence_url if certification else '') }}">
+                        <input id="evidence_url" name="evidence_url" type="url" maxlength="2000" placeholder="https://..." value="{{ request.form.get('evidence_url', certification.evidence_url if certification and certification.evidence_url else '') }}">
                     </div>
                 </div>
 
@@ -180,7 +201,7 @@
                 </label>
 
                 <button class="submit" type="submit">送出人工審核並繼續設定時段</button>
-                <p class="privacy">請勿在補充說明中填寫身分證完整號碼、銀行資料或其他與場地權利無關的敏感資訊。</p>
+                <p class="privacy">只上傳確認出租權限所需的資料。請遮蔽身分證完整號碼、銀行資料及其他與場地權利無關的敏感資訊。</p>
             </form>
         {% endif %}
     </main>

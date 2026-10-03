@@ -19,14 +19,49 @@ reviewing them.
 
 1. Create the stall and address record.
 2. Submit legal/contact information, relationship to the space, proof type, and
-   an HTTPS evidence link.
+   one to three proof documents. PDF, JPG, and PNG files are accepted up to 5 MB
+   each. A private HTTPS evidence link can be supplied instead of or in addition
+   to uploaded files.
 3. Configure availability while the application is pending.
 4. Wait for an operator to approve or reject the application.
 
-Evidence links and review notes are private. They must not be copied into public
-stall descriptions, logs, screenshots, support tickets, or API responses.
+Evidence files, evidence links, and review notes are private. They must not be
+copied into public stall descriptions, logs, screenshots, support tickets, or
+API responses.
+
+Uploaded documents are validated by extension and file signature, encrypted
+with AES-GCM, and stored in PostgreSQL rather than Render's ephemeral web-service
+filesystem. The encryption key is derived from `SECRET_KEY`, so do not rotate
+that variable while documents exist unless the documents are re-encrypted as
+part of the rotation. Database backups and `SECRET_KEY` must be protected
+separately.
 
 ## Operator Review
+
+### Create an admin account
+
+Admin access is a separate database flag and cannot be selected during public
+registration or role activation. The user must sign in normally at least once,
+then a trusted operator grants access from `market-connect-flask-server/` using
+the username shown on that user's profile:
+
+```bash
+python -m flask --app app set-admin USERNAME --enable
+```
+
+Open `/admin/certifications/` while signed in as that account. Revoke access
+immediately when it is no longer required:
+
+```bash
+python -m flask --app app set-admin USERNAME --disable
+```
+
+The web admin area lists certification cases, downloads encrypted evidence as
+attachments, and records the reviewing admin on approve/reject decisions. A
+rejection always requires an actionable note. Non-admin accounts receive HTTP
+403 and anonymous visitors are sent to login.
+
+### CLI fallback
 
 Run commands from `market-connect-flask-server/` with the intended
 `DATABASE_URL` loaded. On Render, use a trusted Shell session.
@@ -74,9 +109,15 @@ python -m flask --app app review-stall-certification STALL_ID \
 Approval reduces risk but is not a permanent guarantee. Revoke approval with a
 rejection decision if rights expire, ownership changes, or fraud is reported.
 
-## Current Limitation
+## Current Limitations
 
-The MVP stores a private evidence link rather than uploading identity/property
-documents to the application. Before accepting direct uploads, add encrypted
-object storage, malware scanning, strict staff access controls, retention and
-deletion rules, and a documented privacy incident process.
+- File signatures are checked, but the MVP does not run an antivirus or content
+  disarm scanner. Admins must use a managed device and must not enable macros,
+  scripts, or external links in downloaded documents.
+- PostgreSQL byte storage is suitable only for the current small MVP limits. At
+  higher volume, move ciphertext to private object storage with a KMS-managed
+  key while keeping metadata and audit state in PostgreSQL.
+- A formal retention/deletion schedule and privacy incident process are still
+  required before production-scale collection of identity or property records.
+- Document downloads are forced as attachments with no-store headers, but staff
+  remain responsible for protecting any local copies they create.

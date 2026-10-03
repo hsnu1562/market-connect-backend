@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPACIS | 場地認證管理</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
+    <style>
+        :root { --ink: #171917; --paper: #f2eddf; --surface: #fffdf7; --green: #315c45; --gold: #d8a62e; --red: #9d3f35; --muted: #66685f; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: var(--ink); background: linear-gradient(90deg, rgba(23,25,23,.035) 1px, transparent 1px), var(--paper); background-size: 34px 100%; font-family: 'Noto Sans TC', sans-serif; }
+        main { width: min(1120px, calc(100% - 32px)); margin: 50px auto 90px; }
+        .heading { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 26px; }
+        .kicker { margin: 0 0 6px; color: var(--green); font-size: .75rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+        h1 { margin: 0; font: 900 clamp(2.1rem, 6vw, 4rem)/.95 'Playfair Display', 'Noto Sans TC', serif; }
+        .privacy { max-width: 420px; margin: 0; color: var(--muted); line-height: 1.7; }
+        .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 24px; }
+        .filters a { padding: 9px 13px; border: 1px solid var(--ink); background: var(--surface); color: var(--ink); font-weight: 700; text-decoration: none; }
+        .filters a.active { background: var(--ink); color: #fff; }
+        .queue { display: grid; gap: 12px; }
+        .item { display: grid; grid-template-columns: minmax(180px, 1.3fr) minmax(150px, 1fr) auto auto; gap: 18px; align-items: center; padding: 18px 20px; border: 2px solid var(--ink); background: var(--surface); }
+        .item h2 { margin: 0 0 5px; font-size: 1.08rem; }
+        .item p { margin: 0; color: var(--muted); font-size: .86rem; line-height: 1.6; }
+        .status { padding: 5px 9px; border: 1px solid currentColor; font-size: .78rem; font-weight: 700; white-space: nowrap; }
+        .status.pending { color: #8a6510; }
+        .status.approved { color: var(--green); }
+        .status.rejected { color: var(--red); }
+        .open { padding: 10px 14px; border: 2px solid var(--ink); background: var(--ink); color: #fff; font-weight: 700; text-decoration: none; white-space: nowrap; }
+        .empty { padding: 44px 24px; border: 2px dashed #8e897d; background: rgba(255,253,247,.7); color: var(--muted); text-align: center; }
+        @media (max-width: 760px) {
+            main { margin-top: 32px; }
+            .heading { display: block; }
+            .privacy { margin-top: 16px; }
+            .item { grid-template-columns: 1fr auto; }
+            .item .owner { grid-column: 1 / -1; }
+        }
+    </style>
+</head>
+<body>
+    {% set nav_active = 'admin' %}
+    {% include '_member_nav.html' %}
+    <main>
+        <div class="heading">
+            <div>
+                <p class="kicker">Private operations</p>
+                <h1>場地認證審核</h1>
+            </div>
+            <p class="privacy">本區包含個資與出租權證明，僅限授權管理員使用。請勿轉傳文件或將內容複製到公開頁面。</p>
+        </div>
+        <nav class="filters" aria-label="審核狀態篩選">
+            <a href="{{ url_for('web_admin.certification_queue', status='pending') }}" class="{% if selected_status == 'pending' %}active{% endif %}">待審 {{ status_counts.pending }}</a>
+            <a href="{{ url_for('web_admin.certification_queue', status='approved') }}" class="{% if selected_status == 'approved' %}active{% endif %}">已通過 {{ status_counts.approved }}</a>
+            <a href="{{ url_for('web_admin.certification_queue', status='rejected') }}" class="{% if selected_status == 'rejected' %}active{% endif %}">已退回 {{ status_counts.rejected }}</a>
+            <a href="{{ url_for('web_admin.certification_queue', status='all') }}" class="{% if selected_status == 'all' %}active{% endif %}">全部</a>
+        </nav>
+        {% if certifications %}
+            <section class="queue" aria-label="認證案件">
+                {% for certification in certifications %}
+                    <article class="item">
+                        <div>
+                            <h2>{{ certification.stall.loc_name }}</h2>
+                            <p>{{ certification.stall.city }}{{ certification.stall.district }}{{ certification.stall.road }}{{ certification.stall.address_detail }}</p>
+                        </div>
+                        <div class="owner">
+                            <strong>{{ certification.applicant_legal_name }}</strong>
+                            <p>帳號：{{ certification.stall.owner.username }} · 文件 {{ certification.documents|length }} 份</p>
+                        </div>
+                        <span class="status {{ certification.status }}">{% if certification.status == 'approved' %}已通過{% elif certification.status == 'rejected' %}已退回{% else %}待審核{% endif %}</span>
+                        <a class="open" href="{{ url_for('web_admin.certification_detail', certification_id=certification.id) }}">開啟案件</a>
+                    </article>
+                {% endfor %}
+            </section>
+        {% else %}
+            <p class="empty">此狀態目前沒有認證案件。</p>
+        {% endif %}
+    </main>
+</body>
+</html>

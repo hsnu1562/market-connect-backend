@@ -10,6 +10,11 @@ from flask import Blueprint, abort, redirect, render_template, request
 from ..extensions import db
 from ..models import Booking, Review, Slot, Stall, StallCertification
 from ..security import get_current_user, login_required, require_current_user_id
+from ..services.certification_documents import (
+    MAX_DOCUMENTS,
+    replace_certification_documents,
+    validate_document_uploads,
+)
 from .utils import get_or_404, parse_date
 
 
@@ -76,19 +81,32 @@ def stall_certification(stall_id: int):
         if certification is not None and certification.status == "approved":
             abort(409, description="Approved certification cannot be overwritten.")
         try:
-            payload = _parse_certification_submission(request.form)
+            uploaded_documents = validate_document_uploads(
+                request.files.getlist("evidence_documents")
+            )
+            has_documents = bool(uploaded_documents) or bool(
+                certification is not None and certification.documents
+            )
+            payload = _parse_certification_submission(
+                request.form,
+                has_documents=has_documents,
+            )
         except ValueError as exc:
             error = str(exc)
         else:
             if certification is None:
                 certification = StallCertification(stall=stall, **payload)
                 db.session.add(certification)
+                db.session.flush()
             else:
                 for field, value in payload.items():
                     setattr(certification, field, value)
+            if uploaded_documents:
+                replace_certification_documents(certification, uploaded_documents)
             certification.status = "pending"
             certification.submitted_at = datetime.now(UTC)
             certification.reviewed_at = None
+            certification.reviewed_by_user_id = None
             certification.reviewer_reference = None
             certification.review_note = None
             db.session.commit()
@@ -103,6 +121,7 @@ def stall_certification(stall_id: int):
             error=error,
             relationship_labels=RELATIONSHIP_LABELS,
             proof_type_labels=PROOF_TYPE_LABELS,
+            max_documents=MAX_DOCUMENTS,
         ),
         400 if error else 200,
     )
@@ -310,7 +329,7 @@ def _parse_slot_items(raw_slots: str, booking_mode: str) -> list[dict]:
     return normalized_items
 
 
-def _parse_certification_submission(form) -> dict:
+def _parse_certification_submission(form, *, has_documents: bool) -> dict:
     legal_name = form.get("applicant_legal_name", "").strip()
     phone = form.get("applicant_phone", "").strip()
     relationship = form.get("relationship_to_space", "")
@@ -331,18 +350,21 @@ def _parse_certification_submission(form) -> dict:
     if len(proof_reference) > 120:
         raise ValueError("文件編號或補充說明不可超過 120 字。")
 
-    try:
-        parsed_url = urlsplit(evidence_url)
-    except ValueError:
-        raise ValueError("證明文件連結格式無效。") from None
-    if (
-        parsed_url.scheme != "https"
-        or not parsed_url.netloc
-        or parsed_url.username is not None
-        or parsed_url.password is not None
-        or len(evidence_url) > 2000
-    ):
-        raise ValueError("證明文件必須使用可供審核人員開啟的 HTTPS 連結。")
+    if evidence_url:
+        try:
+            parsed_url = urlsplit(evidence_url)
+        except ValueError:
+            raise ValueError("證明文件連結格式無效。") from None
+        if (
+            parsed_url.scheme != "https"
+            or not parsed_url.netloc
+            or parsed_url.username is not None
+            or parsed_url.password is not None
+            or len(evidence_url) > 2000
+        ):
+            raise ValueError("證明文件必須使用可供審核人員開啟的 HTTPS 連結。")
+    if not evidence_url and not has_documents:
+        raise ValueError("請上傳至少一份證明文件，或提供私密 HTTPS 文件連結。")
     if form.get("declaration_accepted") != "yes":
         raise ValueError("送審前必須確認您有權出租此場地並同意人工覆核。")
 
@@ -352,7 +374,7 @@ def _parse_certification_submission(form) -> dict:
         "relationship_to_space": relationship,
         "proof_type": proof_type,
         "proof_reference": proof_reference or None,
-        "evidence_url": evidence_url,
+        "evidence_url": evidence_url or None,
         "declaration_accepted": True,
     }
 
