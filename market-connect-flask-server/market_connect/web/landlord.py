@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 from collections import OrderedDict
-from datetime import date
+from datetime import UTC, date, datetime
+from urllib.parse import urlsplit
 
 from flask import Blueprint, abort, redirect, render_template, request
 
 from ..extensions import db
-from ..models import Booking, Review, Slot, Stall
+from ..models import Booking, Review, Slot, Stall, StallCertification
 from ..security import get_current_user, login_required, require_current_user_id
 from .utils import get_or_404, parse_date
 
@@ -16,6 +17,25 @@ bp = Blueprint("web_landlord", __name__)
 ALLOWED_ENVIRONMENT_TYPES = {"indoor", "outdoor", "mixed"}
 ALLOWED_BOOKING_MODES = {"hourly", "daily"}
 ALLOWED_MINIMUM_HOURS = {1, 2, 3}
+RELATIONSHIP_LABELS = {
+    "property_owner": "場地所有權人",
+    "authorized_manager": "受委託管理人",
+    "tenant_with_permission": "取得轉租同意的承租人",
+    "event_organizer": "活動主辦或場地合作單位",
+}
+PROOF_TYPE_LABELS = {
+    "property_record": "所有權或稅籍證明",
+    "lease_or_consent": "租約與出租同意書",
+    "venue_authorization": "場地方授權書",
+    "event_permit": "活動核准或場地合作文件",
+    "other": "其他可驗證文件",
+}
+CERTIFICATION_STATUS_LABELS = {
+    "not_submitted": "尚未送審",
+    "pending": "人工審核中",
+    "approved": "已通過認證",
+    "rejected": "退回補件",
+}
 
 
 @bp.route("/landlord/<int:user_id>/", methods=["GET", "POST"])
@@ -38,8 +58,54 @@ def landlord_dashboard(user_id: int):
         )
         db.session.add(stall)
         db.session.commit()
-        return redirect(f"/stall_pricing/{stall.id}/")
+        return redirect(f"/stall_certification/{stall.id}/")
     return render_template("landlord_dashboard.html", user=user)
+
+
+@bp.route("/stall_certification/<int:stall_id>/", methods=["GET", "POST"])
+@login_required("Landlord")
+def stall_certification(stall_id: int):
+    stall = get_or_404(Stall, stall_id)
+    user = get_current_user()
+    if user is None or stall.owner_id != user.id:
+        abort(403)
+
+    certification = stall.certification
+    error = None
+    if request.method == "POST":
+        if certification is not None and certification.status == "approved":
+            abort(409, description="Approved certification cannot be overwritten.")
+        try:
+            payload = _parse_certification_submission(request.form)
+        except ValueError as exc:
+            error = str(exc)
+        else:
+            if certification is None:
+                certification = StallCertification(stall=stall, **payload)
+                db.session.add(certification)
+            else:
+                for field, value in payload.items():
+                    setattr(certification, field, value)
+            certification.status = "pending"
+            certification.submitted_at = datetime.now(UTC)
+            certification.reviewed_at = None
+            certification.reviewer_reference = None
+            certification.review_note = None
+            db.session.commit()
+            return redirect(f"/stall_pricing/{stall.id}/")
+
+    return (
+        render_template(
+            "stall_certification.html",
+            stall=stall,
+            user=user,
+            certification=certification,
+            error=error,
+            relationship_labels=RELATIONSHIP_LABELS,
+            proof_type_labels=PROOF_TYPE_LABELS,
+        ),
+        400 if error else 200,
+    )
 
 
 @bp.route("/landlord/history/<int:user_id>/")
@@ -52,6 +118,8 @@ def landlord_history(user_id: int):
         Slot.query.outerjoin(Booking)
         .filter(Slot.stall_id.in_(stall_ids) if stall_ids else False, Booking.id.is_(None))
         .join(Stall)
+        .join(StallCertification)
+        .filter(StallCertification.status == "approved")
         .order_by(Stall.loc_name, Slot.date, Slot.time)
         .all()
     )
@@ -128,12 +196,24 @@ def landlord_history(user_id: int):
         rented_slots.append(data)
 
     my_reviews = Review.query.filter_by(reviewee_id=landlord.id).order_by(Review.created_at.desc()).all()
+    certification_records = [
+        {
+            "stall": stall,
+            "certification": stall.certification,
+            "status": stall.certification.status if stall.certification else "not_submitted",
+            "status_label": CERTIFICATION_STATUS_LABELS[
+                stall.certification.status if stall.certification else "not_submitted"
+            ],
+        }
+        for stall in sorted(landlord.stalls, key=lambda item: item.loc_name)
+    ]
     return render_template(
         "landlord_history.html",
         user=landlord,
         rented_slots=rented_slots,
         my_reviews=my_reviews,
         my_active_vacancies=my_active_vacancies,
+        certification_records=certification_records,
     )
 
 
@@ -144,6 +224,8 @@ def stall_pricing(stall_id: int):
     user = get_current_user()
     if user is None or stall.owner_id != user.id:
         abort(403)
+    if stall.certification is None or stall.certification.status == "rejected":
+        return redirect(f"/stall_certification/{stall.id}/")
     if request.method == "POST":
         booking_mode = request.form.get("booking_mode", "")
         if booking_mode not in ALLOWED_BOOKING_MODES:
@@ -226,6 +308,53 @@ def _parse_slot_items(raw_slots: str, booking_mode: str) -> list[dict]:
             }
         )
     return normalized_items
+
+
+def _parse_certification_submission(form) -> dict:
+    legal_name = form.get("applicant_legal_name", "").strip()
+    phone = form.get("applicant_phone", "").strip()
+    relationship = form.get("relationship_to_space", "")
+    proof_type = form.get("proof_type", "")
+    proof_reference = form.get("proof_reference", "").strip()
+    evidence_url = form.get("evidence_url", "").strip()
+
+    if any("\n" in value or "\r" in value for value in (legal_name, phone, proof_reference)):
+        raise ValueError("認證欄位不可包含換行字元。")
+    if not 2 <= len(legal_name) <= 100:
+        raise ValueError("請填寫 2 至 100 字的法定姓名或機構名稱。")
+    if not 8 <= sum(character.isdigit() for character in phone) <= 20:
+        raise ValueError("請填寫可供人工覆核的有效聯絡電話。")
+    if relationship not in RELATIONSHIP_LABELS:
+        raise ValueError("請選擇您與場地的合法關係。")
+    if proof_type not in PROOF_TYPE_LABELS:
+        raise ValueError("請選擇證明文件類型。")
+    if len(proof_reference) > 120:
+        raise ValueError("文件編號或補充說明不可超過 120 字。")
+
+    try:
+        parsed_url = urlsplit(evidence_url)
+    except ValueError:
+        raise ValueError("證明文件連結格式無效。") from None
+    if (
+        parsed_url.scheme != "https"
+        or not parsed_url.netloc
+        or parsed_url.username is not None
+        or parsed_url.password is not None
+        or len(evidence_url) > 2000
+    ):
+        raise ValueError("證明文件必須使用可供審核人員開啟的 HTTPS 連結。")
+    if form.get("declaration_accepted") != "yes":
+        raise ValueError("送審前必須確認您有權出租此場地並同意人工覆核。")
+
+    return {
+        "applicant_legal_name": legal_name,
+        "applicant_phone": phone,
+        "relationship_to_space": relationship,
+        "proof_type": proof_type,
+        "proof_reference": proof_reference or None,
+        "evidence_url": evidence_url,
+        "declaration_accepted": True,
+    }
 
 
 def _validate_slot_update(

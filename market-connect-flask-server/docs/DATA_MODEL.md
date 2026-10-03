@@ -16,6 +16,9 @@ These existing tables support the customer-facing service:
 - `stall`: a provider-owned physical stall or rentable space. It records the
   indoor/outdoor environment, whether it rents hourly or as a complete daily
   period, and the 1/2/3-hour minimum for hourly reservations.
+- `stall_certification`: private legal/contact evidence and manual review state
+  for one stall. Missing, pending, and rejected certifications prevent public
+  discovery and booking; evidence links are never included in public payloads.
 - `slot`: one bookable period for a stall, including its date, start hour,
   duration, and price. In hourly mode each row is one hour and selected rows
   must be consecutive. In daily mode one row represents the entire indivisible
@@ -25,8 +28,8 @@ These existing tables support the customer-facing service:
 - `stall_price`: an optional pricing record for a stall date and hour.
 - `review`: one renter or provider review per booking and reviewer.
 
-Only verified providers should create `stall` and `slot` records. These are the
-only tables that power public availability and bookings.
+Providers may prepare `stall` and `slot` draft records, but only stalls with an
+approved `stall_certification` power public availability and bookings.
 
 ## External Intake Layer
 

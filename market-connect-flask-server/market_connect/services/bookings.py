@@ -15,6 +15,8 @@ class BookingSelectionError(ValueError):
 def filter_bookable_slots(stall: Stall, slots: list[Slot]) -> list[Slot]:
     """Remove hourly fragments that cannot satisfy the stall minimum."""
 
+    if not stall.is_certified:
+        return []
     if stall.booking_mode == "daily":
         return [slot for slot in slots if slot.duration_hours >= 1]
     if stall.booking_mode != "hourly" or stall.minimum_booking_hours not in {1, 2, 3}:
@@ -85,6 +87,8 @@ def _validate_booking_policy(slots: list[Slot]) -> None:
         raise BookingSelectionError("一次預約只能選擇同一攤位、同一天的時段。")
 
     stall = slots[0].stall
+    if not stall.is_certified:
+        raise BookingSelectionError("此攤位尚未通過平台場地認證，暫時無法預約。")
     if stall.booking_mode == "daily":
         if len(slots) != 1 or slots[0].duration_hours < 1:
             raise BookingSelectionError("此攤位採整日出租，必須預約完整開放時段。")

@@ -8,7 +8,7 @@ import pytest
 from werkzeug.security import generate_password_hash
 
 from app import create_app
-from models import Booking, Slot, Stall, User, db
+from models import Booking, Slot, Stall, StallCertification, User, db
 
 
 @pytest.fixture()
@@ -58,6 +58,19 @@ def app():
         )
         db.session.add_all([landlord, tenant1, tenant2, stall])
         db.session.flush()
+        db.session.add(
+            StallCertification(
+                stall=stall,
+                applicant_legal_name="Landlord One",
+                applicant_phone="0912000000",
+                relationship_to_space="property_owner",
+                proof_type="property_record",
+                evidence_url="https://example.invalid/huashan-proof",
+                declaration_accepted=True,
+                status="approved",
+                reviewer_reference="test-suite",
+            )
+        )
         available_date = date.today() + timedelta(days=7)
         db.session.add_all(
             [
@@ -88,9 +101,15 @@ def test_homepage_shows_available_stalls(client):
     assert b'id="auth-dialog"' in response.data
     assert b'data-auth-role="Tenant"' in response.data
     assert b'data-auth-role="Landlord"' in response.data
+    assert b'<details class="home-mobile-menu">' in response.data
+    assert 'aria-label="行動版主要導覽"'.encode() in response.data
+    assert response.data.count("找攤位".encode()) >= 2
+    assert response.data.count("刊登攤位".encode()) >= 2
     assert "讓每一次出攤，都從清楚開始。".encode() in response.data
     assert "可靠的租客".encode() in response.data
     assert "可靠的場地主".encode() in response.data
+    assert "場地認證通過".encode() in response.data
+    assert b"huashan-proof" not in response.data
     assert "先比較供應".encode() not in response.data
 
 
@@ -126,6 +145,8 @@ def test_marketplace_exposes_discovery_filters_and_booking_policy(app, client):
     assert b'"environment_type": "indoor"' in response.data
     assert b'"booking_mode": "hourly"' in response.data
     assert b'"minimum_booking_hours": 1' in response.data
+    assert "場地認證通過".encode() in response.data
+    assert b"huashan-proof" not in response.data
 
 
 def test_templates_use_spacis_brand():
@@ -239,6 +260,45 @@ def test_provider_can_publish_full_day_stall(app, client):
         stall = Stall.query.filter_by(loc_name="Riverside Market").one()
         stall_id = stall.id
         assert stall.environment_type == "outdoor"
+        assert stall.certification is None
+    assert response.headers["Location"].endswith(f"/stall_certification/{stall_id}/")
+
+    response = client.post(
+        f"/stall_certification/{stall_id}/",
+        data={
+            "_csrf_token": "publish-test-token",
+            "applicant_legal_name": "Landlord One",
+            "applicant_phone": "0912000000",
+            "relationship_to_space": "property_owner",
+            "proof_type": "property_record",
+            "evidence_url": "http://unsafe.example/proof",
+            "declaration_accepted": "yes",
+        },
+    )
+    assert response.status_code == 400
+    assert "HTTPS 連結".encode() in response.data
+
+    response = client.post(
+        f"/stall_certification/{stall_id}/",
+        data={
+            "_csrf_token": "publish-test-token",
+            "applicant_legal_name": "Landlord One",
+            "applicant_phone": "0912000000",
+            "relationship_to_space": "property_owner",
+            "proof_type": "property_record",
+            "proof_reference": "TEST-OWNERSHIP-001",
+            "evidence_url": "https://example.invalid/riverside-proof",
+            "declaration_accepted": "yes",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert response.headers["Location"].endswith(f"/stall_pricing/{stall_id}/")
+
+    with app.app_context():
+        certification = StallCertification.query.filter_by(stall_id=stall_id).one()
+        assert certification.status == "pending"
+        assert certification.evidence_url == "https://example.invalid/riverside-proof"
 
     available_date = (date.today() + timedelta(days=10)).isoformat()
     response = client.post(
@@ -290,6 +350,117 @@ def test_provider_can_publish_full_day_stall(app, client):
     assert response.status_code == 409
     with app.app_context():
         assert Slot.query.filter_by(stall_id=stall_id).count() == 1
+
+
+def test_pending_certification_blocks_discovery_and_booking_until_approved(app, client):
+    with app.app_context():
+        landlord = User.query.filter_by(username="landlord1").one()
+        tenant = User.query.filter_by(username="tenant1").one()
+        pending_stall = Stall(
+            owner=landlord,
+            loc_name="Pending Harbor Stall",
+            city="Keelung",
+            district="Zhongzheng",
+            road="Harbor Rd",
+            address_detail="Pier 3",
+            environment_type="outdoor",
+        )
+        pending_stall.certification = StallCertification(
+            applicant_legal_name="Landlord One",
+            applicant_phone="0912000000",
+            relationship_to_space="authorized_manager",
+            proof_type="venue_authorization",
+            evidence_url="https://example.invalid/private-harbor-proof",
+            declaration_accepted=True,
+            status="pending",
+        )
+        pending_slot = Slot(
+            stall=pending_stall,
+            date=date.today() + timedelta(days=20),
+            time=9,
+            price=500,
+        )
+        db.session.add_all([pending_stall, pending_slot])
+        db.session.commit()
+        stall_id = pending_stall.id
+        slot_id = pending_slot.id
+        tenant_id = tenant.id
+
+    homepage = client.get("/")
+    assert b"Pending Harbor Stall" not in homepage.data
+    marketplace = client.get("/stalls/")
+    assert f'data-stall-id="{stall_id}"'.encode() not in marketplace.data
+    public_api = client.get("/api/v1/stalls")
+    assert stall_id not in {item["id"] for item in public_api.get_json()["stalls"]}
+    assert client.get(f"/api/v1/stalls/{stall_id}/slots").status_code == 404
+
+    with client.session_transaction() as session:
+        session["user_id"] = tenant_id
+        session["_csrf_token"] = "certification-gate-token"
+
+    assert client.get(f"/booking_page/{stall_id}/{tenant_id}/").status_code == 404
+    response = client.post(
+        "/api/v1/bookings",
+        json={"slot_ids": [slot_id]},
+        headers={"X-CSRF-Token": "certification-gate-token"},
+    )
+    assert response.status_code == 409
+    assert "尚未通過平台場地認證" in response.get_json()["error"]
+
+    runner = app.test_cli_runner()
+    pending_result = runner.invoke(args=["list-stall-certifications"])
+    assert pending_result.exit_code == 0
+    assert f"stall_id={stall_id}" in pending_result.output
+    assert "private-harbor-proof" not in pending_result.output
+
+    rejected_without_note = runner.invoke(
+        args=[
+            "review-stall-certification",
+            str(stall_id),
+            "--decision",
+            "reject",
+            "--reviewer",
+            "test-operator",
+        ]
+    )
+    assert rejected_without_note.exit_code != 0
+
+    approved = runner.invoke(
+        args=[
+            "review-stall-certification",
+            str(stall_id),
+            "--decision",
+            "approve",
+            "--reviewer",
+            "test-operator",
+            "--note",
+            "Authorization confirmed.",
+        ]
+    )
+    assert approved.exit_code == 0
+    assert "is now approved" in approved.output
+
+    homepage = client.get("/")
+    assert b"Pending Harbor Stall" in homepage.data
+    slots_response = client.get(f"/api/v1/stalls/{stall_id}/slots")
+    assert slots_response.status_code == 200
+    assert slots_response.get_json()["slots"][0]["id"] == slot_id
+
+    revoked = runner.invoke(
+        args=[
+            "review-stall-certification",
+            str(stall_id),
+            "--decision",
+            "reject",
+            "--reviewer",
+            "test-operator",
+            "--note",
+            "Authorization expired.",
+        ]
+    )
+    assert revoked.exit_code == 0
+    assert b"Pending Harbor Stall" not in client.get("/").data
+    assert client.get(f"/api/v1/stalls/{stall_id}/slots").status_code == 404
 
 
 def test_provider_cannot_publish_hourly_date_below_its_minimum(app, client):
@@ -432,6 +603,16 @@ def test_full_day_booking_is_one_flat_price(app, client):
             environment_type="indoor",
             booking_mode="daily",
         )
+        full_day_stall.certification = StallCertification(
+            applicant_legal_name="Landlord One",
+            applicant_phone="0912000000",
+            relationship_to_space="property_owner",
+            proof_type="property_record",
+            evidence_url="https://example.invalid/full-day-proof",
+            declaration_accepted=True,
+            status="approved",
+            reviewer_reference="test-suite",
+        )
         first_date = date.today() + timedelta(days=12)
         db.session.add_all(
             [
@@ -566,6 +747,10 @@ def test_api_booking_flow(app, client):
     response = client.get(f"/api/v1/stalls/{stall.id}/slots")
     assert response.status_code == 200
     assert response.get_json()["slots"][0]["id"] == slot.id
+
+    stalls_payload = client.get("/api/v1/stalls").get_json()["stalls"]
+    assert stalls_payload[0]["certification_status"] == "approved"
+    assert "evidence_url" not in stalls_payload[0]
 
     with client.session_transaction() as session:
         session["user_id"] = tenant.id

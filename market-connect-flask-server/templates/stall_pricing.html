@@ -162,7 +162,7 @@
 <!-- 💡 完美呼應 image_01c19c.png 結構的大置中第二步主標題與精緻下底線 -->
 <div style="text-align: center; margin-top: 50px; margin-bottom: 40px;">
     <h1 style="font-family: 'Playfair Display', 'Noto Sans TC', serif; font-size: 2.2rem; font-weight: 900; color: var(--text-charcoal); margin: 0 auto; letter-spacing: -1px; display: inline-block; position: relative;">
-        第二步：設定時段與定價
+        第三步：設定時段與定價
     </h1>
     <!-- 復古報紙裝飾橫線，完美複製第一步地圖頁面的經典視覺細節 -->
     <div style="width: 100px; height: 2px; background: var(--text-charcoal); margin: 15px auto 0 auto;"></div>
@@ -172,6 +172,15 @@
     <p style="color: #555; font-weight: 600; margin: 0; text-align: center; font-size: 1.05rem;">
         先決定出租單位，再為每個開放日期設定時間與價格
     </p>
+    {% if stall.certification.status == 'pending' %}
+        <p style="margin: 24px 0 0; padding: 14px 16px; border: 1px solid #a77b1c; border-left-width: 6px; background: #fff9e8; color: #72530f; line-height: 1.7;">
+            <strong>場地認證正在人工審核。</strong> 您可以先設定時段與價格，但審核通過前攤位不會公開，也不能接受預約。
+        </p>
+    {% else %}
+        <p style="margin: 24px 0 0; padding: 14px 16px; border: 1px solid #315c45; border-left-width: 6px; background: #edf5ef; color: #244a36;">
+            場地認證已通過，完成時段設定後即可公開接受預約。
+        </p>
+    {% endif %}
 
     <form method="POST" id="main-form">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">

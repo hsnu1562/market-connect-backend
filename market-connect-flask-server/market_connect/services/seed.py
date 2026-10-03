@@ -5,7 +5,7 @@ from datetime import UTC, date, datetime, timedelta
 from werkzeug.security import generate_password_hash
 
 from ..extensions import db
-from ..models import Slot, Stall, User
+from ..models import Slot, Stall, StallCertification, User
 
 
 def seed_demo_data() -> None:
@@ -46,6 +46,22 @@ def seed_demo_data() -> None:
     )
     db.session.add_all([landlord, tenant, stall])
     db.session.flush()
+    db.session.add(
+        StallCertification(
+            stall=stall,
+            applicant_legal_name="Demo Provider",
+            applicant_phone="0912-000-001",
+            relationship_to_space="property_owner",
+            proof_type="property_record",
+            proof_reference="DEMO-ONLY",
+            evidence_url="https://example.invalid/demo-stall-proof",
+            declaration_accepted=True,
+            status="approved",
+            reviewed_at=datetime.now(UTC),
+            reviewer_reference="seed-demo",
+            review_note="Development fixture only.",
+        )
+    )
     demo_date = date.today() + timedelta(days=7)
     for hour, price in [(8, 300), (9, 300), (10, 400)]:
         db.session.add(Slot(stall=stall, date=demo_date, time=hour, price=price))

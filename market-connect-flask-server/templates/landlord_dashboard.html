@@ -140,6 +140,9 @@
 
     <div id="stall-form-section" class="form-section">
         <h2 id="form-title">🏗️ 填寫攤位詳細資訊</h2>
+        <p style="margin: -8px 0 24px; padding: 14px 16px; border-left: 5px solid #c7942f; background: #fff9e8; line-height: 1.7;">
+            建立後需提交場地出租資格證明並由 SPACIS 人工審核；審核通過前不會公開攤位，也不能接受預約。
+        </p>
         <form method="POST">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
@@ -184,7 +187,7 @@
                  <label>6. 設施與特色描述</label>
                  <textarea name="facilities" rows="4" placeholder="請詳細描述您提供的硬體設施或攤位環境特色..."></textarea>
             </div>
-            <button type="submit" class="submit-btn">下一步：設定出租方式與價格</button>
+            <button type="submit" class="submit-btn">下一步：提交場地出租資格證明</button>
         </form>
     </div>
 </div>

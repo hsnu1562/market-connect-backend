@@ -113,7 +113,9 @@ def test_initial_migration_upgrades_legacy_user_schema(tmp_path):
         upgrade(directory=str(MIGRATIONS_DIR))
 
         inspector = inspect(db.engine)
-        assert {"auth_identity", "user_role"}.issubset(inspector.get_table_names())
+        assert {"auth_identity", "user_role", "stall_certification"}.issubset(
+            inspector.get_table_names()
+        )
         user_columns = {column["name"]: column for column in inspector.get_columns("user")}
         assert user_columns["password_hash"]["nullable"] is True
         assert {
@@ -145,6 +147,16 @@ def test_initial_migration_upgrades_legacy_user_schema(tmp_path):
             text("SELECT duration_hours FROM slot WHERE id = 1")
         ).scalar_one()
         assert duration_hours == 1
+        certification_columns = {
+            column["name"] for column in inspector.get_columns("stall_certification")
+        }
+        assert {
+            "stall_id",
+            "applicant_legal_name",
+            "evidence_url",
+            "status",
+            "reviewed_at",
+        }.issubset(certification_columns)
 
 
 def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
@@ -155,7 +167,7 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
         upgrade(directory=str(MIGRATIONS_DIR))
 
         revision = db.session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        assert revision == "20261002_04"
+        assert revision == "20261004_05"
         inspector = inspect(db.engine)
         stall_columns = {column["name"] for column in inspector.get_columns("stall")}
         slot_columns = {column["name"] for column in inspector.get_columns("slot")}
@@ -165,3 +177,4 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
             "minimum_booking_hours",
         }.issubset(stall_columns)
         assert "duration_hours" in slot_columns
+        assert "stall_certification" in inspector.get_table_names()

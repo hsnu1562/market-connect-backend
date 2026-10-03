@@ -42,6 +42,14 @@
         .review-header { display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 8px; color: var(--text-charcoal); }
         .review-stars { color: #ffb703; font-size: 1.1rem; }
         .review-comment { color: #555; font-size: 0.95rem; line-height: 1.5; }
+        .cert-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 16px; margin-top: 22px; }
+        .cert-card { padding: 20px; border: 1px solid var(--border-line); background: #fffdf7; }
+        .cert-card h3 { margin: 0 0 8px; font-family: 'Playfair Display', 'Noto Sans TC', serif; }
+        .cert-status { display: inline-block; margin: 8px 0 16px; padding: 5px 9px; border: 1px solid currentColor; font-size: 0.8rem; font-weight: 700; }
+        .cert-status.approved { color: var(--vacancy-accent); }
+        .cert-status.pending { color: #8a6510; }
+        .cert-status.rejected, .cert-status.not_submitted { color: #9d3f35; }
+        .cert-action { display: inline-block; padding: 9px 12px; border: 1px solid var(--border-line); background: var(--text-charcoal); color: #fff; font-weight: 700; text-decoration: none; }
 
         @media (max-width: 720px) {
             .container { margin: 28px auto; padding: 0 14px; }
@@ -55,7 +63,36 @@
 {% include '_member_nav.html' %}
 
 <div class="container">
-    
+    <div class="section-box">
+        <h2>場地認證與公開狀態</h2>
+        <p style="color: #666; line-height: 1.7;">只有通過人工認證的攤位會出現在公開市場並接受預約。證明文件連結只供內部審核，不會顯示給租客。</p>
+        {% if certification_records %}
+            <div class="cert-grid">
+                {% for record in certification_records %}
+                    <article class="cert-card">
+                        <h3>{{ record.stall.loc_name }}</h3>
+                        <div>{{ record.stall.city }}{{ record.stall.district }}{{ record.stall.road }}</div>
+                        <span class="cert-status {{ record.status }}">{{ record.status_label }}</span>
+                        {% if record.status == 'rejected' and record.certification.review_note %}
+                            <p style="color: #7a3028;"><strong>退件原因：</strong>{{ record.certification.review_note }}</p>
+                        {% elif record.status == 'pending' %}
+                            <p style="color: #72530f;">人工覆核中；您仍可先完成時段與價格設定。</p>
+                        {% elif record.status == 'approved' %}
+                            <p style="color: var(--vacancy-accent);">已允許公開展示並接受租客預約。</p>
+                        {% else %}
+                            <p style="color: #7a3028;">尚未提交出租資格證明，此攤位目前不可公開。</p>
+                        {% endif %}
+                        <a class="cert-action" href="{{ url_for('web_landlord.stall_certification', stall_id=record.stall.id) }}">
+                            {% if record.status == 'approved' %}查看認證{% elif record.status == 'rejected' %}補件並重新送審{% else %}填寫或更新認證{% endif %}
+                        </a>
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p style="color: #777;">目前尚未建立攤位。</p>
+        {% endif %}
+    </div>
+
     <div class="section-box" style="border-color: var(--vacancy-accent);">
         <h2 style="color: var(--vacancy-accent); border-bottom-color: var(--vacancy-accent);">已發佈・架上等待預約中的攤位</h2>
         {% if my_active_vacancies %}

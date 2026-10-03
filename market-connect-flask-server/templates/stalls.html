@@ -282,6 +282,7 @@
                     <h2 class="stall-name">{{ stall.loc_name }}</h2>
                     <div class="stall-address">📍 {{ stall.city }}{{ stall.district }}{{ stall.road }}</div>
                     <div class="stall-meta">
+                        <span class="meta-tag">✓ 場地認證通過</span>
                         <span class="meta-tag">{% if stall.environment_type == 'indoor' %}室內{% elif stall.environment_type == 'outdoor' %}戶外{% elif stall.environment_type == 'mixed' %}室內與戶外{% else %}場地型態未標示{% endif %}</span>
                         <span class="meta-tag">{% if stall.booking_mode == 'daily' %}整日出租・不可拆分{% else %}按小時・至少 {{ stall.minimum_booking_hours }} 小時{% endif %}</span>
                     </div>

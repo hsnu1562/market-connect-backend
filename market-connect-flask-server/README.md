@@ -12,8 +12,8 @@ It preserves the prototype's main flows:
 
 - Google OIDC login with required first-login profile setup
 - tenant and landlord roles on the same user account
-- landlord stall publishing
-- hourly slot pricing
+- landlord stall publishing with manual certification approval
+- hourly minimum-duration and indivisible full-day pricing
 - tenant stall search
 - multi-slot booking with one QR code
 - cash/card payment state
@@ -26,6 +26,8 @@ The import and review boundary for crawler data is documented in
 [docs/DATA_MODEL.md](docs/DATA_MODEL.md).
 The local-account and Google OIDC implementation plus the future LINE boundary
 are documented in [docs/AUTHENTICATION.md](docs/AUTHENTICATION.md).
+The private evidence and operator approval workflow is documented in
+[docs/STALL_CERTIFICATION.md](docs/STALL_CERTIFICATION.md).
 
 ## Run Locally
 
@@ -116,7 +118,8 @@ Demo accounts after `seed-demo` are available only when
 - `market_connect/api/v1/`: JSON API routes under `/api/v1`.
 - `market_connect/web/`: browser page routes for landlords and tenants.
 - `market_connect/services/`: shared booking, payment, review, and seed logic.
-- `market_connect/models.py`: SQLAlchemy models for users, stalls, slots, bookings, prices, and reviews.
+- `market_connect/models.py`: SQLAlchemy models for users, stalls,
+  certifications, slots, bookings, prices, and reviews.
 - `templates/`: server-rendered frontend HTML files. They are frontend-facing,
   but they stay in this Flask backend repo because Flask renders them on the
   server with `render_template(...)`.
@@ -141,8 +144,8 @@ State-changing API calls require the signed-in Flask session and an
 
 - Google OIDC is the only production login method. Local username/password
   routes are disabled unless `LOCAL_AUTH_ENABLED=true`; use that switch only
-  for local demo testing. LINE login, phone OTP, provider verification, and
-  payment-provider integration are not implemented yet.
+  for local demo testing. LINE login, phone OTP, automated document validation,
+  and payment-provider integration are not implemented yet.
 - SQLite is used by default at `instance/market_connect.db` and is local-only.
 - `Booking.slot_id` is unique to prevent double-booking the same slot.
 - Web routes and `/api/v1` routes intentionally live in the same backend repo so

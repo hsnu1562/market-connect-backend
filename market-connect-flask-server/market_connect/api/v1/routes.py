@@ -4,7 +4,7 @@ from datetime import date
 
 from flask import Blueprint, jsonify, request
 
-from ...models import Booking, Slot, Stall
+from ...models import Booking, Slot, Stall, StallCertification
 from ...security import get_current_user
 from ...services.bookings import (
     BookingSelectionError,
@@ -24,13 +24,22 @@ def health_check():
 
 @bp.get("/stalls")
 def list_stalls():
-    stalls = Stall.query.order_by(Stall.loc_name).all()
+    stalls = (
+        Stall.query.join(StallCertification)
+        .filter(StallCertification.status == "approved")
+        .order_by(Stall.loc_name)
+        .all()
+    )
     return jsonify({"stalls": [_stall_payload(stall, include_slots=True) for stall in stalls]})
 
 
 @bp.get("/stalls/<int:stall_id>/slots")
 def list_available_slots(stall_id: int):
-    stall = Stall.query.filter_by(id=stall_id).first()
+    stall = (
+        Stall.query.join(StallCertification)
+        .filter(Stall.id == stall_id, StallCertification.status == "approved")
+        .first()
+    )
     if stall is None:
         return jsonify({"error": "stall not found"}), 404
     available_slots = (
@@ -150,6 +159,7 @@ def _stall_payload(stall: Stall, include_slots: bool = False) -> dict:
         "owner_id": stall.owner_id,
         "road": stall.road,
         "booking_mode": stall.booking_mode,
+        "certification_status": "approved",
         "minimum_booking_hours": stall.minimum_booking_hours,
     }
     if include_slots:

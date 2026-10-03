@@ -165,6 +165,16 @@ class Stall(db.Model):
 
     owner = db.relationship("User", back_populates="stalls")
     slots = db.relationship("Slot", back_populates="stall", cascade="all, delete-orphan")
+    certification = db.relationship(
+        "StallCertification",
+        back_populates="stall",
+        cascade="all, delete-orphan",
+        uselist=False,
+    )
+
+    @property
+    def is_certified(self) -> bool:
+        return self.certification is not None and self.certification.status == "approved"
 
     def __repr__(self) -> str:
         return f"<Stall {self.loc_name}>"
@@ -186,6 +196,52 @@ class Slot(db.Model):
             f"<Slot {self.date} {self.time}:00 "
             f"+{self.duration_hours}h ${self.price}>"
         )
+
+
+class StallCertification(db.Model):
+    __tablename__ = "stall_certification"
+
+    id = db.Column(db.Integer, primary_key=True)
+    stall_id = db.Column(
+        db.Integer,
+        db.ForeignKey("stall.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    applicant_legal_name = db.Column(db.String(100), nullable=False)
+    applicant_phone = db.Column(db.String(30), nullable=False)
+    relationship_to_space = db.Column(db.String(40), nullable=False)
+    proof_type = db.Column(db.String(40), nullable=False)
+    proof_reference = db.Column(db.String(120))
+    evidence_url = db.Column(db.Text, nullable=False)
+    declaration_accepted = db.Column(
+        db.Boolean,
+        default=False,
+        server_default=db.false(),
+        nullable=False,
+    )
+    status = db.Column(
+        db.String(20),
+        default="pending",
+        server_default="pending",
+        nullable=False,
+        index=True,
+    )
+    submitted_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(UTC),
+        server_default=db.func.now(),
+        nullable=False,
+    )
+    reviewed_at = db.Column(db.DateTime)
+    reviewer_reference = db.Column(db.String(100))
+    review_note = db.Column(db.Text)
+
+    stall = db.relationship("Stall", back_populates="certification")
+
+    def __repr__(self) -> str:
+        return f"<StallCertification stall={self.stall_id} status={self.status}>"
 
 
 class Booking(db.Model):

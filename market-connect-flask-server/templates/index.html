@@ -116,6 +116,53 @@
             font-family: inherit;
         }
 
+        .home-mobile-menu { display: none; position: relative; }
+        .home-mobile-menu summary {
+            padding: 9px 12px;
+            border: 1.5px solid var(--line);
+            background: var(--paper-light);
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 700;
+            list-style: none;
+        }
+        .home-mobile-menu summary::-webkit-details-marker { display: none; }
+        .home-mobile-menu summary::after { content: " +"; color: var(--green); }
+        .home-mobile-menu[open] summary::after { content: " -"; }
+        .home-mobile-menu summary:focus-visible,
+        .home-mobile-panel a:focus-visible,
+        .home-mobile-panel button:focus-visible {
+            outline: 3px solid var(--saffron);
+            outline-offset: 2px;
+        }
+        .home-mobile-panel {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: min(310px, calc(100vw - 28px));
+            padding: 10px;
+            border: 2px solid var(--line);
+            border-top: 5px solid var(--green);
+            background: var(--paper-light);
+            box-shadow: var(--shadow);
+        }
+        .home-mobile-panel a,
+        .home-mobile-panel button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            border: 0;
+            border-bottom: 1px solid #d6d0c0;
+            background: transparent;
+            color: var(--ink);
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+            text-align: left;
+            text-decoration: none;
+        }
+        .home-mobile-panel form { margin: 0; }
+
         main {
             width: min(1320px, calc(100% - 48px));
             margin: 0 auto;
@@ -432,6 +479,12 @@
             background: rgba(255, 255, 255, 0.55);
             font-size: 0.74rem;
         }
+        .facility-list li.verified {
+            border-color: var(--green);
+            color: var(--green);
+            background: var(--green-light);
+            font-weight: 700;
+        }
 
         .availability {
             margin-top: 28px;
@@ -627,8 +680,8 @@
             .topbar { min-height: 68px; gap: 12px; }
             .brand { font-size: 1.2rem; }
             .brand-mark { width: 32px; height: 32px; }
-            .nav-link:not(.outline) { display: none; }
-            .nav-link.outline { padding: 7px 10px; font-size: 0.78rem; }
+            .nav-links { display: none; }
+            .home-mobile-menu { display: block; }
             .hero { min-height: auto; }
             .hero-copy { padding: 44px 24px 36px; }
             .eyebrow { margin-bottom: 18px; font-size: 0.68rem; }
@@ -689,6 +742,23 @@
                     <a href="{{ account_url }}" class="nav-link outline">登入 / 建立帳戶</a>
                 {% endif %}
             </nav>
+            <details class="home-mobile-menu">
+                <summary>選單</summary>
+                <nav class="home-mobile-panel" aria-label="行動版主要導覽">
+                    <a href="/">首頁</a>
+                    <a href="#availability">找攤位</a>
+                    <a href="{{ provider_url }}"{% if not current_user %} data-auth-role="Landlord" data-auth-next=""{% endif %}>刊登攤位</a>
+                    {% if current_user %}
+                        <a href="{{ account_url }}">{{ current_user.display_name }} / 個人資料</a>
+                        <form action="{{ url_for('web_auth.logout') }}" method="POST">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit">登出</button>
+                        </form>
+                    {% else %}
+                        <a href="{{ account_url }}">登入 / 建立帳戶</a>
+                    {% endif %}
+                </nav>
+            </details>
         </div>
     </header>
 
@@ -758,6 +828,7 @@
                             <p class="stall-address">{{ listing.stall.city }} {{ listing.stall.district }} · {{ listing.stall.road }} {{ listing.stall.address_detail }}</p>
 
                             <ul class="facility-list" aria-label="攤位設備">
+                                <li class="verified">✓ 場地認證通過</li>
                                 {% if listing.facilities %}
                                     {% for facility in listing.facilities[:3] %}
                                         <li>{{ facility }}</li>

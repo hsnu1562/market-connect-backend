@@ -92,6 +92,8 @@ def stall_list():
 @login_required("Tenant")
 def booking_page(stall_id: int, user_id: int):
     stall = get_or_404(Stall, stall_id)
+    if not stall.is_certified:
+        abort(404)
     tenant = require_current_user_id(user_id)
     available_slots = (
         Slot.query.outerjoin(Booking)
