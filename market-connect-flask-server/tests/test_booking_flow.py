@@ -774,7 +774,7 @@ def test_api_booking_flow(app, client):
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     assert response.get_json()["status"] == "ok"
-    assert response.get_json()["release"] == "20261004.07"
+    assert response.get_json()["release"] == "20261004.08"
 
     response = client.get(f"/api/v1/stalls/{stall.id}/slots")
     assert response.status_code == 200

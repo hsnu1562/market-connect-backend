@@ -110,7 +110,8 @@ rejection decision if rights expire, ownership changes, or fraud is reported.
 Migration `20261004_07` clears former evidence links and disables all application
 support for them. Any approved or pending certification without an uploaded
 document is changed to `rejected` and must be resubmitted with a file before it
-can be approved again.
+can be approved again. Migration `20261004_08` removes the deprecated URL column
+after the file-only application version is deployed.
 
 ## Current Limitations
 

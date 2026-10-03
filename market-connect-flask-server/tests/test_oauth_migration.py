@@ -163,7 +163,7 @@ def test_initial_migration_upgrades_legacy_user_schema(tmp_path):
             "reviewed_at",
             "reviewed_by_user_id",
         }.issubset(certification_columns)
-        assert "evidence_url" in certification_columns
+        assert "evidence_url" not in certification_columns
 
 
 def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
@@ -174,7 +174,7 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
         upgrade(directory=str(MIGRATIONS_DIR))
 
         revision = db.session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        assert revision == "20261004_07"
+        assert revision == "20261004_08"
         inspector = inspect(db.engine)
         stall_columns = {column["name"] for column in inspector.get_columns("stall")}
         slot_columns = {column["name"] for column in inspector.get_columns("slot")}
@@ -188,7 +188,7 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
         assert "stall_certification_document" in inspector.get_table_names()
 
 
-def test_link_only_certification_is_rejected_and_url_is_cleared(tmp_path):
+def test_link_only_certification_is_rejected_cleared_and_removed(tmp_path):
     app = _migration_app(tmp_path / "link-only.db")
 
     with app.app_context():
@@ -231,7 +231,7 @@ def test_link_only_certification_is_rejected_and_url_is_cleared(tmp_path):
         )
         db.session.commit()
 
-        upgrade(directory=str(MIGRATIONS_DIR))
+        upgrade(directory=str(MIGRATIONS_DIR), revision="20261004_07")
         db.session.expire_all()
 
         migrated = db.session.get(StallCertification, certification.id)
@@ -245,3 +245,9 @@ def test_link_only_certification_is_rejected_and_url_is_cleared(tmp_path):
             ),
             {"certification_id": certification.id},
         ).scalar_one() is None
+
+        upgrade(directory=str(MIGRATIONS_DIR))
+        columns = {
+            column["name"] for column in inspect(db.engine).get_columns("stall_certification")
+        }
+        assert "evidence_url" not in columns

@@ -15,7 +15,7 @@ from .web import register_web_blueprints
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
-SERVICE_RELEASE = "20261004.07"
+SERVICE_RELEASE = "20261004.08"
 
 
 def _normalize_database_url(database_url: str) -> str:
