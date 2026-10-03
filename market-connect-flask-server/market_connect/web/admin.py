@@ -129,7 +129,7 @@ def review_certification(certification_id: int):
         abort(400, description="A rejection reason is required.")
     if len(note) > 2000:
         abort(400, description="Review note cannot exceed 2000 characters.")
-    if decision == "approve" and not certification.documents and not certification.evidence_url:
+    if decision == "approve" and not certification.documents:
         abort(409, description="Certification has no evidence to review.")
     if decision == "approve" and not certification.declaration_accepted:
         abort(409, description="Certification declaration has not been accepted.")

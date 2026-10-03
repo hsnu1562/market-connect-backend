@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, date, datetime, timedelta
 
 from werkzeug.security import generate_password_hash
 
 from ..extensions import db
 from ..models import Slot, Stall, StallCertification, User
+from .certification_documents import ValidatedDocument, replace_certification_documents
+
+
+DEMO_EVIDENCE = b"%PDF-1.7\nSPACIS demo certification evidence only\n%%EOF\n"
 
 
 def seed_demo_data() -> None:
@@ -46,21 +51,31 @@ def seed_demo_data() -> None:
     )
     db.session.add_all([landlord, tenant, stall])
     db.session.flush()
-    db.session.add(
-        StallCertification(
-            stall=stall,
-            applicant_legal_name="Demo Provider",
-            applicant_phone="0912-000-001",
-            relationship_to_space="property_owner",
-            proof_type="property_record",
-            proof_reference="DEMO-ONLY",
-            evidence_url="https://example.invalid/demo-stall-proof",
-            declaration_accepted=True,
-            status="approved",
-            reviewed_at=datetime.now(UTC),
-            reviewer_reference="seed-demo",
-            review_note="Development fixture only.",
-        )
+    certification = StallCertification(
+        stall=stall,
+        applicant_legal_name="Demo Provider",
+        applicant_phone="0912-000-001",
+        relationship_to_space="property_owner",
+        proof_type="property_record",
+        proof_reference="DEMO-ONLY",
+        declaration_accepted=True,
+        status="approved",
+        reviewed_at=datetime.now(UTC),
+        reviewer_reference="seed-demo",
+        review_note="Development fixture only.",
+    )
+    db.session.add(certification)
+    db.session.flush()
+    replace_certification_documents(
+        certification,
+        [
+            ValidatedDocument(
+                filename="demo-certification.pdf",
+                content_type="application/pdf",
+                data=DEMO_EVIDENCE,
+                sha256=hashlib.sha256(DEMO_EVIDENCE).hexdigest(),
+            )
+        ],
     )
     demo_date = date.today() + timedelta(days=7)
     for hour, price in [(8, 300), (9, 300), (10, 400)]:

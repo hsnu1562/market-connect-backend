@@ -225,7 +225,6 @@ class StallCertification(db.Model):
     relationship_to_space = db.Column(db.String(40), nullable=False)
     proof_type = db.Column(db.String(40), nullable=False)
     proof_reference = db.Column(db.String(120))
-    evidence_url = db.Column(db.Text)
     declaration_accepted = db.Column(
         db.Boolean,
         default=False,

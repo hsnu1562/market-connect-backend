@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from flask_migrate import upgrade
+from flask_migrate import stamp, upgrade
 from sqlalchemy import inspect, text
 
 from app import create_app
-from models import db
+from models import Stall, StallCertification, User, db
 
 
 MIGRATIONS_DIR = Path(__file__).resolve().parents[1] / "migrations"
@@ -159,11 +159,11 @@ def test_initial_migration_upgrades_legacy_user_schema(tmp_path):
         assert {
             "stall_id",
             "applicant_legal_name",
-            "evidence_url",
             "status",
             "reviewed_at",
             "reviewed_by_user_id",
         }.issubset(certification_columns)
+        assert "evidence_url" in certification_columns
 
 
 def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
@@ -174,7 +174,7 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
         upgrade(directory=str(MIGRATIONS_DIR))
 
         revision = db.session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        assert revision == "20261004_06"
+        assert revision == "20261004_07"
         inspector = inspect(db.engine)
         stall_columns = {column["name"] for column in inspector.get_columns("stall")}
         slot_columns = {column["name"] for column in inspector.get_columns("slot")}
@@ -186,3 +186,62 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
         assert "duration_hours" in slot_columns
         assert "stall_certification" in inspector.get_table_names()
         assert "stall_certification_document" in inspector.get_table_names()
+
+
+def test_link_only_certification_is_rejected_and_url_is_cleared(tmp_path):
+    app = _migration_app(tmp_path / "link-only.db")
+
+    with app.app_context():
+        db.create_all()
+        db.session.execute(text("ALTER TABLE stall_certification ADD COLUMN evidence_url TEXT"))
+        db.session.commit()
+        stamp(directory=str(MIGRATIONS_DIR), revision="20261004_06")
+        user = User(
+            username="legacy_link_landlord",
+            first_name="Legacy",
+            last_name="Landlord",
+            role="Landlord",
+        )
+        stall = Stall(
+            owner=user,
+            loc_name="Legacy Link Stall",
+            city="Taipei",
+            district="Datong",
+            road="Dihua St",
+            address_detail="No. 9",
+        )
+        certification = StallCertification(
+            stall=stall,
+            applicant_legal_name="Legacy Landlord",
+            applicant_phone="0912345678",
+            relationship_to_space="property_owner",
+            proof_type="property_record",
+            declaration_accepted=True,
+            status="approved",
+        )
+        db.session.add(certification)
+        db.session.commit()
+        db.session.execute(
+            text(
+                "UPDATE stall_certification "
+                "SET evidence_url = 'https://example.invalid/legacy-proof' "
+                "WHERE id = :certification_id"
+            ),
+            {"certification_id": certification.id},
+        )
+        db.session.commit()
+
+        upgrade(directory=str(MIGRATIONS_DIR))
+        db.session.expire_all()
+
+        migrated = db.session.get(StallCertification, certification.id)
+        assert migrated.status == "rejected"
+        assert migrated.reviewer_reference == "system-migration"
+        assert "Upload files" in migrated.review_note
+        assert db.session.execute(
+            text(
+                "SELECT evidence_url FROM stall_certification "
+                "WHERE id = :certification_id"
+            ),
+            {"certification_id": certification.id},
+        ).scalar_one() is None

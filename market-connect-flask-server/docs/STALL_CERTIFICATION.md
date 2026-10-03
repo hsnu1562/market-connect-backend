@@ -20,14 +20,12 @@ reviewing them.
 1. Create the stall and address record.
 2. Submit legal/contact information, relationship to the space, proof type, and
    one to three proof documents. PDF, JPG, and PNG files are accepted up to 5 MB
-   each. A private HTTPS evidence link can be supplied instead of or in addition
-   to uploaded files.
+   each. Evidence links are not accepted.
 3. Configure availability while the application is pending.
 4. Wait for an operator to approve or reject the application.
 
-Evidence files, evidence links, and review notes are private. They must not be
-copied into public stall descriptions, logs, screenshots, support tickets, or
-API responses.
+Evidence files and review notes are private. They must not be copied into public
+stall descriptions, logs, screenshots, support tickets, or API responses.
 
 Uploaded documents are validated by extension and file signature, encrypted
 with AES-GCM, and stored in PostgreSQL rather than Render's ephemeral web-service
@@ -66,7 +64,7 @@ rejection always requires an actionable note. Non-admin accounts receive HTTP
 Run commands from `market-connect-flask-server/` with the intended
 `DATABASE_URL` loaded. On Render, use a trusted Shell session.
 
-List pending applications without exposing complete evidence URLs:
+List pending applications without exposing document contents:
 
 ```bash
 python -m flask --app app list-stall-certifications
@@ -108,6 +106,11 @@ python -m flask --app app review-stall-certification STALL_ID \
 
 Approval reduces risk but is not a permanent guarantee. Revoke approval with a
 rejection decision if rights expire, ownership changes, or fraud is reported.
+
+Migration `20261004_07` clears former evidence links and disables all application
+support for them. Any approved or pending certification without an uploaded
+document is changed to `rejected` and must be resubmitted with a file before it
+can be approved again.
 
 ## Current Limitations
 

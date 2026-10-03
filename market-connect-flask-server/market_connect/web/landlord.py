@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from collections import OrderedDict
 from datetime import UTC, date, datetime
-from urllib.parse import urlsplit
 
 from flask import Blueprint, abort, redirect, render_template, request
 
@@ -335,7 +334,6 @@ def _parse_certification_submission(form, *, has_documents: bool) -> dict:
     relationship = form.get("relationship_to_space", "")
     proof_type = form.get("proof_type", "")
     proof_reference = form.get("proof_reference", "").strip()
-    evidence_url = form.get("evidence_url", "").strip()
 
     if any("\n" in value or "\r" in value for value in (legal_name, phone, proof_reference)):
         raise ValueError("認證欄位不可包含換行字元。")
@@ -350,21 +348,8 @@ def _parse_certification_submission(form, *, has_documents: bool) -> dict:
     if len(proof_reference) > 120:
         raise ValueError("文件編號或補充說明不可超過 120 字。")
 
-    if evidence_url:
-        try:
-            parsed_url = urlsplit(evidence_url)
-        except ValueError:
-            raise ValueError("證明文件連結格式無效。") from None
-        if (
-            parsed_url.scheme != "https"
-            or not parsed_url.netloc
-            or parsed_url.username is not None
-            or parsed_url.password is not None
-            or len(evidence_url) > 2000
-        ):
-            raise ValueError("證明文件必須使用可供審核人員開啟的 HTTPS 連結。")
-    if not evidence_url and not has_documents:
-        raise ValueError("請上傳至少一份證明文件，或提供私密 HTTPS 文件連結。")
+    if not has_documents:
+        raise ValueError("請上傳至少一份證明文件。")
     if form.get("declaration_accepted") != "yes":
         raise ValueError("送審前必須確認您有權出租此場地並同意人工覆核。")
 
@@ -374,7 +359,6 @@ def _parse_certification_submission(form, *, has_documents: bool) -> dict:
         "relationship_to_space": relationship,
         "proof_type": proof_type,
         "proof_reference": proof_reference or None,
-        "evidence_url": evidence_url or None,
         "declaration_accepted": True,
     }
 

@@ -19,8 +19,8 @@ These existing tables support the customer-facing service:
   period, and the 1/2/3-hour minimum for hourly reservations.
 - `stall_certification`: private legal/contact evidence and manual review state
   for one stall, including the reviewing admin. Missing, pending, and rejected
-  certifications prevent public discovery and booking; evidence links are never
-  included in public payloads.
+  certifications prevent public discovery and booking. Evidence must be supplied
+  through uploaded documents; URL evidence is not stored or accepted.
 - `stall_certification_document`: encrypted uploaded evidence for a
   certification, including safe display metadata, size, digest, AES-GCM nonce,
   ciphertext, and upload time. Plaintext document bytes are never stored.

@@ -85,7 +85,6 @@ def _certification_form(token: str = "certification-test-token") -> dict[str, st
         "relationship_to_space": "property_owner",
         "proof_type": "property_record",
         "proof_reference": "Deed reference 123",
-        "evidence_url": "",
         "declaration_accepted": "yes",
     }
 
@@ -125,6 +124,7 @@ def test_provider_upload_is_encrypted_and_can_replace_existing_documents(app, cl
     page = client.get(f"/stall_certification/{_stall_id(app)}/")
     assert page.status_code == 200
     assert b"venue-proof.pdf" in page.data
+    assert b"evidence_url" not in page.data
     assert PDF_DOCUMENT not in page.data
 
     replacement = b"%PDF-1.7\nreplacement evidence\n%%EOF\n"
@@ -159,9 +159,11 @@ def test_provider_upload_rejects_disguised_or_missing_evidence(app, client):
     assert response.status_code == 400
     assert "內容與副檔名不符".encode() in response.data
 
+    url_only_payload = _certification_form()
+    url_only_payload["evidence_url"] = "https://example.invalid/legacy-proof"
     response = client.post(
         f"/stall_certification/{stall_id}/",
-        data=_certification_form(),
+        data=url_only_payload,
         content_type="multipart/form-data",
     )
     assert response.status_code == 400

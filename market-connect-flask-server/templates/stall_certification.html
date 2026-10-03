@@ -186,13 +186,6 @@
                             {% endif %}
                         </div>
                     </div>
-                    <div class="field full">
-                        <label for="evidence_url">
-                            私密證明文件連結（選填）
-                            <small>也可補充審核人員可開啟的 HTTPS 雲端文件。上傳檔案或連結至少需提供一種，且都不會出現在公開頁面或 API。</small>
-                        </label>
-                        <input id="evidence_url" name="evidence_url" type="url" maxlength="2000" placeholder="https://..." value="{{ request.form.get('evidence_url', certification.evidence_url if certification and certification.evidence_url else '') }}">
-                    </div>
                 </div>
 
                 <label class="declaration">

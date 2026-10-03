@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 from datetime import date, timedelta
+from hashlib import sha256
+from io import BytesIO
 from pathlib import Path
 
 import pytest
@@ -9,6 +11,29 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from models import Booking, Slot, Stall, StallCertification, User, db
+from market_connect.services.certification_documents import (
+    ValidatedDocument,
+    replace_certification_documents,
+)
+
+
+CERTIFICATION_DOCUMENT = b"%PDF-1.7\nTest certification evidence\n%%EOF\n"
+
+
+def _attach_certification_document(certification: StallCertification) -> None:
+    db.session.add(certification)
+    db.session.flush()
+    replace_certification_documents(
+        certification,
+        [
+            ValidatedDocument(
+                filename="test-certification.pdf",
+                content_type="application/pdf",
+                data=CERTIFICATION_DOCUMENT,
+                sha256=sha256(CERTIFICATION_DOCUMENT).hexdigest(),
+            )
+        ],
+    )
 
 
 @pytest.fixture()
@@ -58,19 +83,17 @@ def app():
         )
         db.session.add_all([landlord, tenant1, tenant2, stall])
         db.session.flush()
-        db.session.add(
-            StallCertification(
-                stall=stall,
-                applicant_legal_name="Landlord One",
-                applicant_phone="0912000000",
-                relationship_to_space="property_owner",
-                proof_type="property_record",
-                evidence_url="https://example.invalid/huashan-proof",
-                declaration_accepted=True,
-                status="approved",
-                reviewer_reference="test-suite",
-            )
+        certification = StallCertification(
+            stall=stall,
+            applicant_legal_name="Landlord One",
+            applicant_phone="0912000000",
+            relationship_to_space="property_owner",
+            proof_type="property_record",
+            declaration_accepted=True,
+            status="approved",
+            reviewer_reference="test-suite",
         )
+        _attach_certification_document(certification)
         available_date = date.today() + timedelta(days=7)
         db.session.add_all(
             [
@@ -271,13 +294,13 @@ def test_provider_can_publish_full_day_stall(app, client):
             "applicant_phone": "0912000000",
             "relationship_to_space": "property_owner",
             "proof_type": "property_record",
-            "evidence_url": "http://unsafe.example/proof",
             "declaration_accepted": "yes",
         },
     )
     assert response.status_code == 400
-    assert "HTTPS 連結".encode() in response.data
+    assert "請上傳至少一份證明文件".encode() in response.data
 
+    certification_document = b"%PDF-1.7\nRiverside ownership evidence\n%%EOF\n"
     response = client.post(
         f"/stall_certification/{stall_id}/",
         data={
@@ -287,9 +310,13 @@ def test_provider_can_publish_full_day_stall(app, client):
             "relationship_to_space": "property_owner",
             "proof_type": "property_record",
             "proof_reference": "TEST-OWNERSHIP-001",
-            "evidence_url": "https://example.invalid/riverside-proof",
             "declaration_accepted": "yes",
+            "evidence_documents": (
+                BytesIO(certification_document),
+                "riverside-ownership.pdf",
+            ),
         },
+        content_type="multipart/form-data",
         follow_redirects=False,
     )
     assert response.status_code == 302
@@ -298,7 +325,9 @@ def test_provider_can_publish_full_day_stall(app, client):
     with app.app_context():
         certification = StallCertification.query.filter_by(stall_id=stall_id).one()
         assert certification.status == "pending"
-        assert certification.evidence_url == "https://example.invalid/riverside-proof"
+        assert [document.original_filename for document in certification.documents] == [
+            "riverside-ownership.pdf"
+        ]
 
     available_date = (date.today() + timedelta(days=10)).isoformat()
     response = client.post(
@@ -370,7 +399,6 @@ def test_pending_certification_blocks_discovery_and_booking_until_approved(app, 
             applicant_phone="0912000000",
             relationship_to_space="authorized_manager",
             proof_type="venue_authorization",
-            evidence_url="https://example.invalid/private-harbor-proof",
             declaration_accepted=True,
             status="pending",
         )
@@ -381,6 +409,8 @@ def test_pending_certification_blocks_discovery_and_booking_until_approved(app, 
             price=500,
         )
         db.session.add_all([pending_stall, pending_slot])
+        db.session.flush()
+        _attach_certification_document(pending_stall.certification)
         db.session.commit()
         stall_id = pending_stall.id
         slot_id = pending_slot.id
@@ -411,7 +441,7 @@ def test_pending_certification_blocks_discovery_and_booking_until_approved(app, 
     pending_result = runner.invoke(args=["list-stall-certifications"])
     assert pending_result.exit_code == 0
     assert f"stall_id={stall_id}" in pending_result.output
-    assert "private-harbor-proof" not in pending_result.output
+    assert "documents=1" in pending_result.output
 
     rejected_without_note = runner.invoke(
         args=[
@@ -608,7 +638,6 @@ def test_full_day_booking_is_one_flat_price(app, client):
             applicant_phone="0912000000",
             relationship_to_space="property_owner",
             proof_type="property_record",
-            evidence_url="https://example.invalid/full-day-proof",
             declaration_accepted=True,
             status="approved",
             reviewer_reference="test-suite",
@@ -633,6 +662,8 @@ def test_full_day_booking_is_one_flat_price(app, client):
                 ),
             ]
         )
+        db.session.flush()
+        _attach_certification_document(full_day_stall.certification)
         db.session.commit()
         tenant_id = tenant.id
         slot_ids = [slot.id for slot in full_day_stall.slots]
