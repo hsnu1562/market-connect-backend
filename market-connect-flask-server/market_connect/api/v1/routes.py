@@ -15,11 +15,18 @@ from ...services.bookings import (
 
 
 bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
+SERVICE_RELEASE = "20261004.07"
 
 
 @bp.get("/health")
 def health_check():
-    return jsonify({"service": "market-connect-flask-server", "status": "ok"})
+    return jsonify(
+        {
+            "release": SERVICE_RELEASE,
+            "service": "market-connect-flask-server",
+            "status": "ok",
+        }
+    )
 
 
 @bp.get("/stalls")
