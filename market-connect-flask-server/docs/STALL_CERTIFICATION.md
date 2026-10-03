@@ -41,17 +41,21 @@ separately.
 Admin access is a separate database flag and cannot be selected during public
 registration or role activation. The user must sign in normally at least once,
 then a trusted operator grants access from `market-connect-flask-server/` using
-the username shown on that user's profile:
+the account's verified Google email:
 
 ```bash
-python -m flask --app app set-admin USERNAME --enable
+python -m flask --app app set-admin VERIFIED_EMAIL --enable
 ```
+
+The command also accepts an exact internal username or a unique nickname. The
+name shown in the navigation bar is the nickname and may differ from the
+generated `google_...` username. Shared nicknames are rejected as ambiguous.
 
 Open `/admin/certifications/` while signed in as that account. Revoke access
 immediately when it is no longer required:
 
 ```bash
-python -m flask --app app set-admin USERNAME --disable
+python -m flask --app app set-admin VERIFIED_EMAIL --disable
 ```
 
 The web admin area lists certification cases, downloads encrypted evidence as

@@ -7,7 +7,7 @@ import click
 from flask import Flask
 
 from .extensions import db
-from .models import StallCertification, User
+from .models import AuthIdentity, StallCertification, User
 from .services.market_leads import import_market_leads_from_file
 from .services.seed import seed_demo_data
 
@@ -27,20 +27,61 @@ def register_cli(app: Flask) -> None:
         print("Seeded demo landlord, tenant, stall, and slots.")
 
     @app.cli.command("set-admin")
-    @click.argument("username")
+    @click.argument("identifier")
     @click.option(
         "--enable/--disable",
         default=True,
         help="Grant or revoke access to the private admin area.",
     )
-    def set_admin_command(username: str, enable: bool) -> None:
-        user = User.query.filter_by(username=username).first()
+    def set_admin_command(identifier: str, enable: bool) -> None:
+        identifier = identifier.strip()
+        if not identifier:
+            raise click.ClickException("Account identifier cannot be blank.")
+
+        user = User.query.filter_by(username=identifier).first()
+        matched_by = "internal username"
+
         if user is None:
-            raise click.ClickException("User account not found.")
+            email_matches = (
+                User.query.join(AuthIdentity)
+                .filter(
+                    db.func.lower(AuthIdentity.email) == identifier.casefold(),
+                    AuthIdentity.email_verified.is_(True),
+                )
+                .distinct()
+                .all()
+            )
+            if len(email_matches) > 1:
+                raise click.ClickException(
+                    "Verified email matches multiple accounts; use the internal username."
+                )
+            if email_matches:
+                user = email_matches[0]
+                matched_by = "verified email"
+
+        if user is None:
+            nickname_matches = User.query.filter_by(nickname=identifier).all()
+            if len(nickname_matches) > 1:
+                raise click.ClickException(
+                    "Nickname matches multiple accounts; use a verified email or the "
+                    "internal username."
+                )
+            if nickname_matches:
+                user = nickname_matches[0]
+                matched_by = "unique nickname"
+
+        if user is None:
+            raise click.ClickException(
+                "User account not found by internal username, verified email, or "
+                "unique nickname."
+            )
         user.is_admin = enable
         db.session.commit()
         state = "enabled" if enable else "disabled"
-        click.echo(f"Admin access {state} for {user.username}.")
+        click.echo(
+            f"Admin access {state} for {user.display_name} "
+            f"({user.username}; matched by {matched_by})."
+        )
 
     @app.cli.command("import-market-leads")
     @click.option(

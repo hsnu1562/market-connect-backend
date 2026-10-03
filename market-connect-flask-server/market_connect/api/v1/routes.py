@@ -15,7 +15,7 @@ from ...services.bookings import (
 
 
 bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
-SERVICE_RELEASE = "20261004.08"
+SERVICE_RELEASE = "20261004.09"
 
 
 @bp.get("/health")

@@ -5,7 +5,14 @@ from io import BytesIO
 import pytest
 
 from app import create_app
-from models import Stall, StallCertification, StallCertificationDocument, User, db
+from models import (
+    AuthIdentity,
+    Stall,
+    StallCertification,
+    StallCertificationDocument,
+    User,
+    db,
+)
 
 
 PDF_DOCUMENT = b"%PDF-1.7\nSPACIS private certification evidence\n%%EOF\n"
@@ -246,4 +253,51 @@ def test_admin_rejection_requires_note_and_cli_controls_admin_flag(app, client):
     disabled = runner.invoke(args=["set-admin", "ordinary-member", "--disable"])
     assert disabled.exit_code == 0
     with app.app_context():
+        assert User.query.filter_by(username="ordinary-member").one().is_admin is False
+
+
+def test_set_admin_accepts_unique_nickname_and_verified_email(app):
+    with app.app_context():
+        member = User.query.filter_by(username="ordinary-member").one()
+        member.nickname = "Visible Nickname"
+        db.session.add(
+            AuthIdentity(
+                user=member,
+                provider="google",
+                provider_subject="google-member-subject",
+                email="Member@Example.com",
+                email_verified=True,
+            )
+        )
+        db.session.commit()
+
+    runner = app.test_cli_runner()
+    by_nickname = runner.invoke(args=["set-admin", "Visible Nickname", "--enable"])
+    assert by_nickname.exit_code == 0
+    assert "matched by unique nickname" in by_nickname.output
+
+    by_email = runner.invoke(args=["set-admin", "member@example.com", "--disable"])
+    assert by_email.exit_code == 0
+    assert "matched by verified email" in by_email.output
+
+    with app.app_context():
+        assert User.query.filter_by(username="ordinary-member").one().is_admin is False
+
+
+def test_set_admin_rejects_ambiguous_nickname(app):
+    with app.app_context():
+        landlord = User.query.filter_by(username="document-landlord").one()
+        member = User.query.filter_by(username="ordinary-member").one()
+        landlord.nickname = "Shared Nickname"
+        member.nickname = "Shared Nickname"
+        db.session.commit()
+
+    result = app.test_cli_runner().invoke(
+        args=["set-admin", "Shared Nickname", "--enable"]
+    )
+    assert result.exit_code == 1
+    assert "Nickname matches multiple accounts" in result.output
+
+    with app.app_context():
+        assert User.query.filter_by(username="document-landlord").one().is_admin is False
         assert User.query.filter_by(username="ordinary-member").one().is_admin is False

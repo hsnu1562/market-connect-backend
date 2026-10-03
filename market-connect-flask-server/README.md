@@ -146,10 +146,13 @@ The private browser endpoint is `/admin/certifications/`. Grant access only to
 an existing trusted account; this flag is not available through registration:
 
 ```bash
-python -m flask --app app set-admin USERNAME --enable
+python -m flask --app app set-admin VERIFIED_EMAIL --enable
 ```
 
-Use `--disable` to revoke it. Certification files are encrypted in PostgreSQL
+The identifier can be the account's internal username, verified Google email,
+or a unique nickname. Prefer the verified email because the navigation bar
+shows the nickname, not the generated `google_...` username. Use `--disable` to
+revoke access. Certification files are encrypted in PostgreSQL
 and downloaded only through an authenticated admin route. Keep `SECRET_KEY`
 stable because it is also used to derive the document-encryption key. Read
 [docs/STALL_CERTIFICATION.md](docs/STALL_CERTIFICATION.md) before reviewing or
