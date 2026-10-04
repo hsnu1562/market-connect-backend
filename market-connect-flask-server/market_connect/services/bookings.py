@@ -12,6 +12,13 @@ class BookingSelectionError(ValueError):
     """Raised when requested slots violate availability or the stall policy."""
 
 
+class PaymentMethodError(ValueError):
+    """Raised when checkout requests an unsupported payment method."""
+
+
+ONLINE_PAYMENT_METHOD = "Credit Card"
+
+
 def filter_bookable_slots(stall: Stall, slots: list[Slot]) -> list[Slot]:
     """Remove hourly fragments that cannot satisfy the stall minimum."""
 
@@ -111,24 +118,15 @@ def _validate_booking_policy(slots: list[Slot]) -> None:
 
 
 def apply_payment_to_qr(qr_code: str, payment_method: str) -> bool:
+    if payment_method != ONLINE_PAYMENT_METHOD:
+        raise PaymentMethodError("目前只接受線上信用卡付款。")
+
     bookings = Booking.query.filter_by(qr_code=qr_code).all()
     if not bookings:
         return False
 
-    payment_status = "Unpaid" if payment_method == "Cash" else "Paid"
-    normalized_method = "Cash" if payment_method == "Cash" else "Credit Card"
     for booking in bookings:
-        booking.payment_status = payment_status
-        booking.payment_method = normalized_method
-    db.session.commit()
-    return True
-
-
-def confirm_booking_payment(booking_id: int) -> bool:
-    booking = db.session.get(Booking, booking_id)
-    if booking is None:
-        return False
-
-    booking.payment_status = "Paid"
+        booking.payment_status = "Paid"
+        booking.payment_method = ONLINE_PAYMENT_METHOD
     db.session.commit()
     return True

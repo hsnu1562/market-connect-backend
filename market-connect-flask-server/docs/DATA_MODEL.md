@@ -32,8 +32,9 @@ These existing tables support the customer-facing service:
   duration, and price. In hourly mode each row is one hour and selected rows
   must be consecutive. In daily mode one row represents the entire indivisible
   opening period and its price is the flat total.
-- `booking`: a renter's reservation for exactly one slot, payment state, and QR
-  code group.
+- `booking`: a renter's reservation for exactly one slot, online payment state,
+  and QR code group. New checkout accepts only the `Credit Card` marker; legacy
+  cash values may remain readable but cannot be created or manually confirmed.
 - `stall_price`: an optional pricing record for a stall date and hour.
 - `review`: one renter or provider review per booking and reviewer.
 

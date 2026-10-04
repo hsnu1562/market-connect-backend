@@ -17,7 +17,7 @@ It preserves the prototype's main flows:
 - hourly minimum-duration and indivisible full-day pricing
 - tenant stall search
 - multi-slot booking with one QR code
-- cash/card payment state
+- online-only MVP payment state; cash checkout is disabled
 - booking history
 - two-way reviews and reputation updates
 
@@ -137,7 +137,8 @@ Demo accounts after `seed-demo` are available only when
 - `GET /stall_photos/<photo_id>/`: serve public media for an approved stall.
 - `POST /api/v1/bookings`: create a booking for the signed-in tenant from JSON `slot_ids`.
 - `GET /api/v1/bookings/<qr_code>`: fetch one accessible QR-code booking group.
-- `POST /api/v1/payments`: update the signed-in tenant's booking state from JSON `qr_code` and `payment_method`.
+- `POST /api/v1/payments`: record the signed-in tenant's MVP online checkout
+  from JSON `qr_code` and `payment_method`; only `Credit Card` is accepted.
 
 State-changing API calls require the signed-in Flask session and an
 `X-CSRF-Token` header. Read-only stall routes remain public.
@@ -167,6 +168,10 @@ collecting documents.
   for local demo testing. LINE login, phone OTP, malware scanning, automated
   document authenticity checks, and payment-provider integration are not
   implemented yet.
+- Cash payment and landlord-side manual payment confirmation are disabled. The
+  current online checkout is an MVP state transition, does not collect card
+  details, and must be replaced with a compliant payment-provider callback
+  before processing real money.
 - SQLite is used by default at `instance/market_connect.db` and is local-only.
 - Stall photos accept JPG, PNG, or WebP up to 4 MB each. They are public listing
   media stored in the database for Render persistence; certification documents

@@ -106,7 +106,7 @@
             <div class="details-row"><span class="label">攤位</span> <span>{{ stall.loc_name }}</span></div>
             <div class="details-row"><span class="label">日期</span> <span>{% for b in bookings %}{{ b.slot.date }}{% if not loop.last %}, {% endif %}{% endfor %}</span></div>
             <div class="details-row"><span class="label">金額</span> <span>${{ total_price }}</span></div>
-            <div class="details-row"><span class="label">付款</span> <span>{% if bookings[0].payment_method == 'Credit Card' %}信用卡支付{% else %}現場現金{% endif %}</span></div>
+            <div class="details-row"><span class="label">付款</span> <span>{% if bookings[0].payment_method == 'Credit Card' %}線上信用卡付款{% elif bookings[0].payment_method == 'Cash' %}歷史現金付款（已停用）{% else %}付款方式未記錄{% endif %}</span></div>
         </div>
 
         <div class="btn-group">

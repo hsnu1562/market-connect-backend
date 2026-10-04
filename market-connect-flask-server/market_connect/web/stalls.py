@@ -19,8 +19,9 @@ from ..models import Booking, Review, Slot, Stall, StallPhoto, User
 from ..security import get_current_user, login_required, require_current_user_id
 from ..services.bookings import (
     BookingSelectionError,
+    ONLINE_PAYMENT_METHOD,
+    PaymentMethodError,
     apply_payment_to_qr,
-    confirm_booking_payment,
     create_booking_for_slots,
     filter_bookable_slots,
 )
@@ -175,6 +176,7 @@ def payment_page(qr_code: str):
         tenant=bookings[0].user,
         stall=bookings[0].slot.stall,
         total_price=sum(booking.slot.price for booking in bookings),
+        online_payment_method=ONLINE_PAYMENT_METHOD,
     )
 
 
@@ -191,28 +193,12 @@ def process_payment():
     bookings = _booking_group_for_tenant(qr_code, tenant)
     if not bookings:
         return redirect("/stalls/")
-    payment_method = request.form.get("payment_method", "Cash")
-    apply_payment_to_qr(qr_code, payment_method)
+    payment_method = request.form.get("payment_method", "")
+    try:
+        apply_payment_to_qr(qr_code, payment_method)
+    except PaymentMethodError as error:
+        abort(400, description=str(error))
     return redirect(f"/booking_success/{qr_code}/")
-
-
-@bp.route("/confirm_payment/", methods=["GET", "POST"])
-@login_required("Landlord")
-def confirm_payment():
-    if request.method == "POST":
-        landlord = get_current_user()
-        if landlord is None:
-            abort(401)
-        try:
-            booking_id = int(request.form["booking_id"])
-        except (KeyError, ValueError):
-            abort(400, description="Invalid booking.")
-        booking = get_or_404(Booking, booking_id)
-        if booking.slot.stall.owner_id != landlord.id:
-            abort(403)
-        confirm_booking_payment(booking.id)
-        return redirect(f"/landlord/history/{landlord.id}/")
-    return redirect("/")
 
 
 @bp.route("/booking_success/<qr_code>/")

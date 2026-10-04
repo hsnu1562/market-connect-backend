@@ -8,6 +8,8 @@ from ...models import Booking, Slot, Stall, StallCertification
 from ...security import get_current_user
 from ...services.bookings import (
     BookingSelectionError,
+    ONLINE_PAYMENT_METHOD,
+    PaymentMethodError,
     apply_payment_to_qr,
     create_booking_for_slots,
     filter_bookable_slots,
@@ -15,7 +17,7 @@ from ...services.bookings import (
 
 
 bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
-SERVICE_RELEASE = "20261004.10"
+SERVICE_RELEASE = "20261004.11"
 
 
 @bp.get("/health")
@@ -130,7 +132,7 @@ def update_payment():
 
     payload = request.get_json(silent=True) or {}
     qr_code = payload.get("qr_code")
-    payment_method = payload.get("payment_method", "Cash")
+    payment_method = payload.get("payment_method", "")
     if not qr_code:
         return jsonify({"error": "qr_code is required"}), 400
     bookings = Booking.query.filter_by(qr_code=qr_code).all()
@@ -139,10 +141,14 @@ def update_payment():
     if any(booking.user_id != user.id for booking in bookings):
         return jsonify({"error": "booking access denied"}), 403
 
-    if not apply_payment_to_qr(qr_code, payment_method):
+    try:
+        updated = apply_payment_to_qr(qr_code, payment_method)
+    except PaymentMethodError as error:
+        return jsonify({"error": str(error)}), 400
+    if not updated:
         return jsonify({"error": "booking not found"}), 404
 
-    return jsonify({"payment_method": "Cash" if payment_method == "Cash" else "Credit Card", "qr_code": qr_code})
+    return jsonify({"payment_method": ONLINE_PAYMENT_METHOD, "qr_code": qr_code})
 
 
 def _require_api_user(required_role: str | None = None):

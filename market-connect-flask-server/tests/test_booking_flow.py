@@ -248,6 +248,23 @@ def test_complete_booking_flow(app, client):
     response = client.get(f"/payment/{qr_code}/")
     assert response.status_code == 200
     assert b"Huashan Stall A" in response.data
+    assert "線上信用卡付款".encode() in response.data
+    assert "現場現金".encode() not in response.data
+    assert b"Card Number" not in response.data
+
+    cash_response = client.post(
+        "/process_payment/",
+        data={
+            "_csrf_token": "booking-test-token",
+            "qr_code": qr_code,
+            "payment_method": "Cash",
+        },
+    )
+    assert cash_response.status_code == 400
+    with app.app_context():
+        unpaid_bookings = Booking.query.filter_by(qr_code=qr_code).all()
+        assert {booking.payment_status for booking in unpaid_bookings} == {"Unpaid"}
+        assert {booking.payment_method for booking in unpaid_bookings} == {""}
 
     response = client.post(
         "/process_payment/",
@@ -268,7 +285,7 @@ def test_complete_booking_flow(app, client):
 
     response = client.get(f"/booking_success/{qr_code}/")
     assert response.status_code == 200
-    assert "信用卡支付".encode() in response.data
+    assert "線上信用卡付款".encode() in response.data
 
     response = client.get(f"/my_bookings/{tenant1.id}/")
     assert response.status_code == 200
@@ -883,7 +900,7 @@ def test_api_booking_flow(app, client):
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     assert response.get_json()["status"] == "ok"
-    assert response.get_json()["release"] == "20261004.10"
+    assert response.get_json()["release"] == "20261004.11"
 
     response = client.get(f"/api/v1/stalls/{stall.id}/slots")
     assert response.status_code == 200
@@ -912,6 +929,16 @@ def test_api_booking_flow(app, client):
     with app.app_context():
         assert Booking.query.filter_by(qr_code=qr_code).one().user_id == tenant.id
 
+    cash_response = client.post(
+        "/api/v1/payments",
+        json={"qr_code": qr_code, "payment_method": "Cash"},
+        headers={"X-CSRF-Token": "api-test-token"},
+    )
+    assert cash_response.status_code == 400
+    assert "只接受線上信用卡付款" in cash_response.get_json()["error"]
+    with app.app_context():
+        assert Booking.query.filter_by(qr_code=qr_code).one().payment_status == "Unpaid"
+
     response = client.post(
         "/api/v1/payments",
         json={"qr_code": qr_code, "payment_method": "Credit Card"},
@@ -923,6 +950,12 @@ def test_api_booking_flow(app, client):
     assert response.status_code == 200
     payload = response.get_json()
     assert payload["bookings"][0]["payment_status"] == "Paid"
+
+    removed_cash_confirmation = client.post(
+        "/confirm_payment/",
+        data={"_csrf_token": "api-test-token", "booking_id": payload["bookings"][0]["id"]},
+    )
+    assert removed_cash_confirmation.status_code == 404
 
 
 def test_api_rejects_booking_below_hourly_minimum(app, client):

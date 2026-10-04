@@ -61,7 +61,7 @@
                     {% if group.payment_status == 'Paid' %}
                         <span class="badge paid">已結清</span>
                     {% else %}
-                        <span class="badge unpaid">待現場付款</span>
+                        <span class="badge unpaid">線上付款未完成</span>
                     {% endif %}
                 </div>
                 
@@ -82,6 +82,8 @@
                     {% else %}
                         <button class="review-btn" onclick="openReviewModal('{{ group.booking_id }}', '{{ group.stall.loc_name|escapejs }}')">⭐ 評價攤主</button>
                     {% endif %}
+                {% else %}
+                    <a class="review-btn" href="/payment/{{ group.qr_code }}/">繼續線上付款</a>
                 {% endif %}
             </div>
 
