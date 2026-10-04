@@ -3,10 +3,19 @@ from __future__ import annotations
 from collections import OrderedDict
 from datetime import date
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import (
+    Blueprint,
+    abort,
+    flash,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 
 from ..extensions import db
-from ..models import Booking, Review, Slot, Stall, User
+from ..models import Booking, Review, Slot, Stall, StallPhoto, User
 from ..security import get_current_user, login_required, require_current_user_id
 from ..services.bookings import (
     BookingSelectionError,
@@ -19,6 +28,21 @@ from .utils import get_or_404
 
 
 bp = Blueprint("web_stalls", __name__)
+
+
+@bp.get("/stall_photos/<int:photo_id>/")
+def stall_photo(photo_id: int):
+    photo = get_or_404(StallPhoto, photo_id)
+    if not photo.stall.is_certified:
+        abort(404)
+
+    response = make_response(photo.data)
+    response.content_type = photo.content_type
+    response.headers["Cache-Control"] = "public, max-age=604800, immutable"
+    response.headers["Content-Security-Policy"] = "default-src 'none'; sandbox"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.set_etag(photo.sha256)
+    return response.make_conditional(request)
 
 
 @bp.route("/stalls/")

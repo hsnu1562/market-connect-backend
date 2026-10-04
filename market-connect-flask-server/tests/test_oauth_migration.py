@@ -174,7 +174,7 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
         upgrade(directory=str(MIGRATIONS_DIR))
 
         revision = db.session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        assert revision == "20261004_08"
+        assert revision == "20261004_09"
         inspector = inspect(db.engine)
         stall_columns = {column["name"] for column in inspector.get_columns("stall")}
         slot_columns = {column["name"] for column in inspector.get_columns("slot")}
@@ -186,6 +186,7 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
         assert "duration_hours" in slot_columns
         assert "stall_certification" in inspector.get_table_names()
         assert "stall_certification_document" in inspector.get_table_names()
+        assert "stall_photo" in inspector.get_table_names()
 
 
 def test_link_only_certification_is_rejected_cleared_and_removed(tmp_path):

@@ -15,7 +15,7 @@ from .web import register_web_blueprints
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
-SERVICE_RELEASE = "20261004.09"
+SERVICE_RELEASE = "20261004.10"
 
 
 def _normalize_database_url(database_url: str) -> str:
@@ -69,7 +69,7 @@ def create_app(config: dict | None = None) -> Flask:
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=is_production or _env_flag("SESSION_COOKIE_SECURE"),
         CSRF_PROTECT=True,
-        MAX_CONTENT_LENGTH=18 * 1024 * 1024,
+        MAX_CONTENT_LENGTH=24 * 1024 * 1024,
     )
     if config:
         app.config.update(config)

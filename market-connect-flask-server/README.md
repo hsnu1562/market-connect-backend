@@ -12,7 +12,8 @@ It preserves the prototype's main flows:
 
 - Google OIDC login with required first-login profile setup
 - tenant and landlord roles on the same user account
-- landlord stall publishing with encrypted document upload and manual admin approval
+- landlord stall publishing with 1–5 persistent listing photos
+- encrypted certification-document upload and manual admin approval
 - hourly minimum-duration and indivisible full-day pricing
 - tenant stall search
 - multi-slot booking with one QR code
@@ -133,6 +134,7 @@ Demo accounts after `seed-demo` are available only when
 - `GET /api/v1/health`: service health check.
 - `GET /api/v1/stalls`: list stalls with available slots.
 - `GET /api/v1/stalls/<stall_id>/slots`: list available slots for one stall.
+- `GET /stall_photos/<photo_id>/`: serve public media for an approved stall.
 - `POST /api/v1/bookings`: create a booking for the signed-in tenant from JSON `slot_ids`.
 - `GET /api/v1/bookings/<qr_code>`: fetch one accessible QR-code booking group.
 - `POST /api/v1/payments`: update the signed-in tenant's booking state from JSON `qr_code` and `payment_method`.
@@ -166,6 +168,9 @@ collecting documents.
   document authenticity checks, and payment-provider integration are not
   implemented yet.
 - SQLite is used by default at `instance/market_connect.db` and is local-only.
+- Stall photos accept JPG, PNG, or WebP up to 4 MB each. They are public listing
+  media stored in the database for Render persistence; certification documents
+  remain separate and encrypted.
 - `Booking.slot_id` is unique to prevent double-booking the same slot.
 - Web routes and `/api/v1` routes intentionally live in the same backend repo so
   the team has one server to run, test, review, and deploy.

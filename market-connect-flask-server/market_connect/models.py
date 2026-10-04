@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from sqlalchemy import UniqueConstraint
+from sqlalchemy.orm import deferred
 
 from .extensions import db
 
@@ -176,6 +177,13 @@ class Stall(db.Model):
 
     owner = db.relationship("User", back_populates="stalls")
     slots = db.relationship("Slot", back_populates="stall", cascade="all, delete-orphan")
+    photos = db.relationship(
+        "StallPhoto",
+        back_populates="stall",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="StallPhoto.display_order",
+    )
     certification = db.relationship(
         "StallCertification",
         back_populates="stall",
@@ -189,6 +197,39 @@ class Stall(db.Model):
 
     def __repr__(self) -> str:
         return f"<Stall {self.loc_name}>"
+
+
+class StallPhoto(db.Model):
+    __tablename__ = "stall_photo"
+
+    id = db.Column(db.Integer, primary_key=True)
+    stall_id = db.Column(
+        db.Integer,
+        db.ForeignKey("stall.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    original_filename = db.Column(db.String(255), nullable=False)
+    content_type = db.Column(db.String(80), nullable=False)
+    byte_size = db.Column(db.Integer, nullable=False)
+    sha256 = db.Column(db.String(64), nullable=False)
+    display_order = db.Column(db.Integer, nullable=False)
+    data = deferred(db.Column(db.LargeBinary, nullable=False))
+    uploaded_at = db.Column(
+        db.DateTime,
+        default=lambda: datetime.now(UTC),
+        server_default=db.func.now(),
+        nullable=False,
+    )
+
+    stall = db.relationship("Stall", back_populates="photos")
+
+    __table_args__ = (
+        UniqueConstraint("stall_id", "display_order", name="uq_stall_photo_display_order"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<StallPhoto stall={self.stall_id} order={self.display_order}>"
 
 
 class Slot(db.Model):

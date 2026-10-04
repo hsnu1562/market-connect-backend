@@ -84,6 +84,34 @@
         input:focus, select:focus, textarea:focus { background-color: #ffffff; border: 2px solid var(--border-line); }
         textarea { resize: vertical; }
 
+        .form-error {
+            margin: 0 0 24px;
+            padding: 14px 16px;
+            border: 2px solid #9c2f2f;
+            background: #fff0ed;
+            color: #7d2424;
+            font-weight: 700;
+        }
+        .photo-upload {
+            padding: 18px;
+            border: 1px dashed var(--border-line);
+            background: #fffdf7;
+        }
+        .photo-upload input { padding: 10px; background: white; }
+        .photo-help { margin: 10px 0 0; color: #666; font-size: 0.84rem; line-height: 1.6; }
+        .photo-preview {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 14px;
+        }
+        .photo-preview img {
+            width: 100%;
+            aspect-ratio: 1;
+            border: 1px solid var(--border-line);
+            object-fit: cover;
+        }
+
         /* 表單內部的行政區網格按鈕 */
         .dist-grid { 
             display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-top: 12px; 
@@ -102,6 +130,7 @@
             .region-grid { grid-template-columns: 1fr 1fr; gap: 12px; }
             .region-card { padding: 22px 10px; }
             .form-section { padding: 30px 20px; }
+            .photo-preview { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -116,22 +145,22 @@
     
     <!-- 💡 核心變更：保留卡片點選，移除所有地圖元件 -->
     <div class="region-grid">
-        <div class="region-card" onclick="selectRegion('North', this)">
+        <div class="region-card" data-region="North" onclick="selectRegion('North', this)">
             <span class="icon">❤️</span>
             <h3>北部地區</h3>
             <small>基北北桃竹宜</small>
         </div>
-        <div class="region-card" onclick="selectRegion('Central', this)">
+        <div class="region-card" data-region="Central" onclick="selectRegion('Central', this)">
             <span class="icon">💛</span>
             <h3>中部地區</h3>
             <small>苗中彰投雲</small>
         </div>
-        <div class="region-card" onclick="selectRegion('South', this)">
+        <div class="region-card" data-region="South" onclick="selectRegion('South', this)">
             <span class="icon">💚</span>
             <h3>南部地區</h3>
             <small>嘉南高屏澎</small>
         </div>
-        <div class="region-card" onclick="selectRegion('East', this)">
+        <div class="region-card" data-region="East" onclick="selectRegion('East', this)">
             <span class="icon">🩵</span>
             <h3>東部與離島</h3>
             <small>花東金馬</small>
@@ -143,11 +172,14 @@
         <p style="margin: -8px 0 24px; padding: 14px 16px; border-left: 5px solid #c7942f; background: #fff9e8; line-height: 1.7;">
             建立後需提交場地出租資格證明並由 SPACIS 人工審核；審核通過前不會公開攤位，也不能接受預約。
         </p>
-        <form method="POST">
+        {% if error %}
+            <div class="form-error" role="alert">{{ error }} 請重新選擇照片後送出。</div>
+        {% endif %}
+        <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label>📍 攤位名稱</label>
-                <input type="text" name="loc_name" placeholder="請填寫您的攤位黃金名稱..." required>
+                <input type="text" name="loc_name" value="{{ request.form.get('loc_name', '') }}" placeholder="請填寫您的攤位黃金名稱..." required>
             </div>
 
             <div class="form-group">
@@ -170,22 +202,31 @@
 
             <div class="form-group">
                 <label>4. 門牌 / 詳細地址</label>
-                <input type="text" name="address_detail" placeholder="例如：100號" required>
+                <input type="text" name="address_detail" value="{{ request.form.get('address_detail', '') }}" placeholder="例如：100號" required>
             </div>
             
             <div class="form-group">
                 <label>5. 場地型態</label>
                 <select name="environment_type" required>
                     <option value="">-- 請選擇室內或戶外 --</option>
-                    <option value="indoor">室內場地</option>
-                    <option value="outdoor">戶外場地</option>
-                    <option value="mixed">室內與戶外皆有</option>
+                    <option value="indoor"{% if request.form.get('environment_type') == 'indoor' %} selected{% endif %}>室內場地</option>
+                    <option value="outdoor"{% if request.form.get('environment_type') == 'outdoor' %} selected{% endif %}>戶外場地</option>
+                    <option value="mixed"{% if request.form.get('environment_type') == 'mixed' %} selected{% endif %}>室內與戶外皆有</option>
                 </select>
             </div>
 
             <div class="form-group">
                  <label>6. 設施與特色描述</label>
-                 <textarea name="facilities" rows="4" placeholder="請詳細描述您提供的硬體設施或攤位環境特色..."></textarea>
+                 <textarea name="facilities" rows="4" placeholder="請詳細描述您提供的硬體設施或攤位環境特色...">{{ request.form.get('facilities', '') }}</textarea>
+            </div>
+            <div class="form-group">
+                <label for="stall-photos">7. 攤位照片</label>
+                <div class="photo-upload">
+                    <input id="stall-photos" type="file" name="stall_photos" accept="image/jpeg,image/png,image/webp" multiple required>
+                    <p class="photo-help">請上傳 1–{{ max_stall_photos }} 張 JPG、PNG 或 WebP。每張最多 {{ max_stall_photo_mb }} MB；第一張會作為列表封面。</p>
+                    <p class="photo-help" id="photo-count" aria-live="polite">尚未選擇照片</p>
+                    <div class="photo-preview" id="photo-preview" aria-label="照片預覽"></div>
+                </div>
             </div>
             <button type="submit" class="submit-btn">下一步：提交場地出租資格證明</button>
         </form>
@@ -263,6 +304,42 @@ function selectDist(cityName, distName, btn) {
     btn.classList.add('active'); 
     document.getElementById('dist-input').value = distName;
     document.getElementById('road-group').style.display = 'block';
+}
+
+const photoInput = document.getElementById('stall-photos');
+const photoCount = document.getElementById('photo-count');
+const photoPreview = document.getElementById('photo-preview');
+photoInput.addEventListener('change', () => {
+    const files = Array.from(photoInput.files);
+    const tooMany = files.length > {{ max_stall_photos }};
+    photoInput.setCustomValidity(tooMany ? `每個攤位最多上傳 {{ max_stall_photos }} 張照片。` : '');
+    photoCount.textContent = tooMany
+        ? `已選擇 ${files.length} 張，超過 {{ max_stall_photos }} 張上限`
+        : `已選擇 ${files.length} / {{ max_stall_photos }} 張`;
+    photoPreview.replaceChildren();
+    files.slice(0, {{ max_stall_photos }}).forEach(file => {
+        const image = document.createElement('img');
+        const objectUrl = URL.createObjectURL(file);
+        image.src = objectUrl;
+        image.alt = file.name;
+        image.onload = () => URL.revokeObjectURL(objectUrl);
+        photoPreview.appendChild(image);
+    });
+});
+
+const previousCity = {{ request.form.get('city', '')|tojson }};
+const previousDistrict = {{ request.form.get('district', '')|tojson }};
+const previousRoad = {{ request.form.get('road', '')|tojson }};
+if (previousCity) {
+    const previousRegion = Object.keys(regions).find(region => regions[region].includes(previousCity));
+    const regionCard = document.querySelector(`[data-region="${previousRegion}"]`);
+    selectRegion(previousRegion, regionCard);
+    document.getElementById('city-select').value = previousCity;
+    updateDistricts();
+    const districtButton = Array.from(document.querySelectorAll('.dist-btn'))
+        .find(button => button.textContent === previousDistrict);
+    if (districtButton) selectDist(previousCity, previousDistrict, districtButton);
+    document.getElementById('road-input').value = previousRoad;
 }
 </script>
 </body>

@@ -426,6 +426,25 @@
                 linear-gradient(90deg, var(--paper-light) 0 72%, var(--green-light) 72% 100%);
         }
 
+        .stall-cover {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            margin: 20px 0 0;
+            border: 1px solid var(--line);
+            object-fit: cover;
+            background:
+                linear-gradient(135deg, var(--green-light), #f4d6cc),
+                var(--paper);
+        }
+        .stall-cover--empty {
+            display: grid;
+            place-items: center;
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+        }
+
         .card-topline {
             display: flex;
             align-items: center;
@@ -823,6 +842,12 @@
                                 <span class="card-number">No. {{ "%02d"|format(loop.index) }}</span>
                                 <span class="city-tag">{{ listing.stall.city }}</span>
                             </div>
+
+                            {% if listing.stall.photos %}
+                                <img class="stall-cover" src="{{ url_for('web_stalls.stall_photo', photo_id=listing.stall.photos[0].id) }}" alt="{{ listing.stall.loc_name }} 攤位照片" loading="lazy" decoding="async">
+                            {% else %}
+                                <div class="stall-cover stall-cover--empty" aria-label="此攤位尚無照片">PHOTO PENDING</div>
+                            {% endif %}
 
                             <h3 class="stall-name">{{ listing.stall.loc_name }}</h3>
                             <p class="stall-address">{{ listing.stall.city }} {{ listing.stall.district }} · {{ listing.stall.road }} {{ listing.stall.address_detail }}</p>

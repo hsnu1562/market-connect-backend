@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, url_for
 
 from ...models import Booking, Slot, Stall, StallCertification
 from ...security import get_current_user
@@ -15,7 +15,7 @@ from ...services.bookings import (
 
 
 bp = Blueprint("api_v1", __name__, url_prefix="/api/v1")
-SERVICE_RELEASE = "20261004.09"
+SERVICE_RELEASE = "20261004.10"
 
 
 @bp.get("/health")
@@ -168,6 +168,10 @@ def _stall_payload(stall: Stall, include_slots: bool = False) -> dict:
         "booking_mode": stall.booking_mode,
         "certification_status": "approved",
         "minimum_booking_hours": stall.minimum_booking_hours,
+        "photo_urls": [
+            url_for("web_stalls.stall_photo", photo_id=photo.id)
+            for photo in stall.photos
+        ],
     }
     if include_slots:
         available_slots = (

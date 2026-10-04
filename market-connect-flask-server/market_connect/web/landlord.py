@@ -14,6 +14,12 @@ from ..services.certification_documents import (
     replace_certification_documents,
     validate_document_uploads,
 )
+from ..services.stall_photos import (
+    MAX_STALL_PHOTOS,
+    MAX_STALL_PHOTO_BYTES,
+    attach_stall_photos,
+    validate_stall_photo_uploads,
+)
 from .utils import get_or_404, parse_date
 
 
@@ -46,24 +52,42 @@ CERTIFICATION_STATUS_LABELS = {
 @login_required("Landlord")
 def landlord_dashboard(user_id: int):
     user = require_current_user_id(user_id)
+    error = None
     if request.method == "POST":
-        environment_type = request.form.get("environment_type", "")
-        if environment_type not in ALLOWED_ENVIRONMENT_TYPES:
-            abort(400, description="Invalid stall environment type.")
-        stall = Stall(
-            owner=user,
-            loc_name=request.form["loc_name"],
-            city=request.form["city"],
-            district=request.form["district"],
-            road=request.form["road"],
-            address_detail=request.form["address_detail"],
-            facilities=request.form.get("facilities"),
-            environment_type=environment_type,
-        )
-        db.session.add(stall)
-        db.session.commit()
-        return redirect(f"/stall_certification/{stall.id}/")
-    return render_template("landlord_dashboard.html", user=user)
+        try:
+            uploaded_photos = validate_stall_photo_uploads(
+                request.files.getlist("stall_photos")
+            )
+        except ValueError as exc:
+            error = str(exc)
+        else:
+            environment_type = request.form.get("environment_type", "")
+            if environment_type not in ALLOWED_ENVIRONMENT_TYPES:
+                abort(400, description="Invalid stall environment type.")
+            stall = Stall(
+                owner=user,
+                loc_name=request.form["loc_name"],
+                city=request.form["city"],
+                district=request.form["district"],
+                road=request.form["road"],
+                address_detail=request.form["address_detail"],
+                facilities=request.form.get("facilities"),
+                environment_type=environment_type,
+            )
+            attach_stall_photos(stall, uploaded_photos)
+            db.session.add(stall)
+            db.session.commit()
+            return redirect(f"/stall_certification/{stall.id}/")
+    return (
+        render_template(
+            "landlord_dashboard.html",
+            user=user,
+            error=error,
+            max_stall_photos=MAX_STALL_PHOTOS,
+            max_stall_photo_mb=MAX_STALL_PHOTO_BYTES // (1024 * 1024),
+        ),
+        400 if error else 200,
+    )
 
 
 @bp.route("/stall_certification/<int:stall_id>/", methods=["GET", "POST"])

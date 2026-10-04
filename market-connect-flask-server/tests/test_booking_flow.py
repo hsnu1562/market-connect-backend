@@ -10,7 +10,7 @@ import pytest
 from werkzeug.security import generate_password_hash
 
 from app import create_app
-from models import Booking, Slot, Stall, StallCertification, User, db
+from models import Booking, Slot, Stall, StallCertification, StallPhoto, User, db
 from market_connect.services.certification_documents import (
     ValidatedDocument,
     replace_certification_documents,
@@ -18,6 +18,7 @@ from market_connect.services.certification_documents import (
 
 
 CERTIFICATION_DOCUMENT = b"%PDF-1.7\nTest certification evidence\n%%EOF\n"
+STALL_PHOTO = b"\x89PNG\r\n\x1a\nSPACIS test stall photo"
 
 
 def _attach_certification_document(certification: StallCertification) -> None:
@@ -83,6 +84,17 @@ def app():
         )
         db.session.add_all([landlord, tenant1, tenant2, stall])
         db.session.flush()
+        db.session.add(
+            StallPhoto(
+                stall=stall,
+                original_filename="huashan-stall.png",
+                content_type="image/png",
+                byte_size=len(STALL_PHOTO),
+                sha256=sha256(STALL_PHOTO).hexdigest(),
+                display_order=0,
+                data=STALL_PHOTO,
+            )
+        )
         certification = StallCertification(
             stall=stall,
             applicant_legal_name="Landlord One",
@@ -133,6 +145,7 @@ def test_homepage_shows_available_stalls(client):
     assert "可靠的場地主".encode() in response.data
     assert "場地認證通過".encode() in response.data
     assert b"huashan-proof" not in response.data
+    assert b'/stall_photos/' in response.data
     assert "先比較供應".encode() not in response.data
 
 
@@ -170,6 +183,23 @@ def test_marketplace_exposes_discovery_filters_and_booking_policy(app, client):
     assert b'"minimum_booking_hours": 1' in response.data
     assert "場地認證通過".encode() in response.data
     assert b"huashan-proof" not in response.data
+    assert b'/stall_photos/' in response.data
+
+
+def test_approved_stall_photo_is_public_and_cacheable(app, client):
+    with app.app_context():
+        photo = StallPhoto.query.one()
+        photo_url = f"/stall_photos/{photo.id}/"
+
+    response = client.get(photo_url)
+    assert response.status_code == 200
+    assert response.data == STALL_PHOTO
+    assert response.content_type == "image/png"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["Cache-Control"] == "public, max-age=604800, immutable"
+
+    cached = client.get(photo_url, headers={"If-None-Match": response.headers["ETag"]})
+    assert cached.status_code == 304
 
 
 def test_templates_use_spacis_brand():
@@ -196,6 +226,7 @@ def test_complete_booking_flow(app, client):
     response = client.get(f"/booking_page/{stall.id}/{tenant1.id}/")
     assert response.status_code == 200
     assert b"Huashan Stall A" in response.data
+    assert b'class="stall-gallery"' in response.data
 
     response = client.post(
         "/make_booking/",
@@ -263,18 +294,33 @@ def test_provider_can_publish_full_day_stall(app, client):
         session["user_id"] = landlord.id
         session["_csrf_token"] = "publish-test-token"
 
+    stall_payload = {
+        "_csrf_token": "publish-test-token",
+        "loc_name": "Riverside Market",
+        "city": "New Taipei",
+        "district": "Banqiao",
+        "road": "Xianmin Blvd",
+        "address_detail": "No. 7",
+        "environment_type": "outdoor",
+        "facilities": "Power",
+    }
+    missing_photos = client.post(
+        f"/landlord/{landlord.id}/",
+        data=stall_payload,
+    )
+    assert missing_photos.status_code == 400
+    assert "請上傳至少一張攤位照片".encode() in missing_photos.data
+
     response = client.post(
         f"/landlord/{landlord.id}/",
         data={
-            "_csrf_token": "publish-test-token",
-            "loc_name": "Riverside Market",
-            "city": "New Taipei",
-            "district": "Banqiao",
-            "road": "Xianmin Blvd",
-            "address_detail": "No. 7",
-            "environment_type": "outdoor",
-            "facilities": "Power",
+            **stall_payload,
+            "stall_photos": [
+                (BytesIO(STALL_PHOTO + bytes([index])), f"riverside-{index}.png")
+                for index in range(5)
+            ],
         },
+        content_type="multipart/form-data",
         follow_redirects=False,
     )
     assert response.status_code == 302
@@ -284,7 +330,11 @@ def test_provider_can_publish_full_day_stall(app, client):
         stall_id = stall.id
         assert stall.environment_type == "outdoor"
         assert stall.certification is None
+        assert [photo.display_order for photo in stall.photos] == list(range(5))
+        assert stall.photos[0].original_filename == "riverside-0.png"
+        first_photo_id = stall.photos[0].id
     assert response.headers["Location"].endswith(f"/stall_certification/{stall_id}/")
+    assert client.get(f"/stall_photos/{first_photo_id}/").status_code == 404
 
     response = client.post(
         f"/stall_certification/{stall_id}/",
@@ -381,6 +431,51 @@ def test_provider_can_publish_full_day_stall(app, client):
         assert Slot.query.filter_by(stall_id=stall_id).count() == 1
 
 
+def test_provider_stall_photo_upload_enforces_count_and_file_signature(app, client):
+    with app.app_context():
+        landlord_id = User.query.filter_by(username="landlord1").one().id
+
+    with client.session_transaction() as session:
+        session["user_id"] = landlord_id
+        session["_csrf_token"] = "photo-validation-token"
+
+    base_payload = {
+        "_csrf_token": "photo-validation-token",
+        "loc_name": "Rejected Photo Stall",
+        "city": "Taipei",
+        "district": "Datong",
+        "road": "Dihua Street",
+        "address_detail": "No. 10",
+        "environment_type": "indoor",
+    }
+    too_many = client.post(
+        f"/landlord/{landlord_id}/",
+        data={
+            **base_payload,
+            "stall_photos": [
+                (BytesIO(STALL_PHOTO + bytes([index])), f"stall-{index}.png")
+                for index in range(6)
+            ],
+        },
+        content_type="multipart/form-data",
+    )
+    assert too_many.status_code == 400
+    assert "最多上傳 5 張照片".encode() in too_many.data
+
+    disguised = client.post(
+        f"/landlord/{landlord_id}/",
+        data={
+            **base_payload,
+            "stall_photos": (BytesIO(b"not an image"), "fake.png"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert disguised.status_code == 400
+    assert "內容與副檔名不符".encode() in disguised.data
+    with app.app_context():
+        assert Stall.query.filter_by(loc_name="Rejected Photo Stall").count() == 0
+
+
 def test_pending_certification_blocks_discovery_and_booking_until_approved(app, client):
     with app.app_context():
         landlord = User.query.filter_by(username="landlord1").one()
@@ -402,6 +497,16 @@ def test_pending_certification_blocks_discovery_and_booking_until_approved(app, 
             declaration_accepted=True,
             status="pending",
         )
+        pending_stall.photos.append(
+            StallPhoto(
+                original_filename="pending.png",
+                content_type="image/png",
+                byte_size=len(STALL_PHOTO),
+                sha256=sha256(STALL_PHOTO).hexdigest(),
+                display_order=0,
+                data=STALL_PHOTO,
+            )
+        )
         pending_slot = Slot(
             stall=pending_stall,
             date=date.today() + timedelta(days=20),
@@ -415,6 +520,7 @@ def test_pending_certification_blocks_discovery_and_booking_until_approved(app, 
         stall_id = pending_stall.id
         slot_id = pending_slot.id
         tenant_id = tenant.id
+        photo_id = pending_stall.photos[0].id
 
     homepage = client.get("/")
     assert b"Pending Harbor Stall" not in homepage.data
@@ -423,6 +529,7 @@ def test_pending_certification_blocks_discovery_and_booking_until_approved(app, 
     public_api = client.get("/api/v1/stalls")
     assert stall_id not in {item["id"] for item in public_api.get_json()["stalls"]}
     assert client.get(f"/api/v1/stalls/{stall_id}/slots").status_code == 404
+    assert client.get(f"/stall_photos/{photo_id}/").status_code == 404
 
     with client.session_transaction() as session:
         session["user_id"] = tenant_id
@@ -475,6 +582,7 @@ def test_pending_certification_blocks_discovery_and_booking_until_approved(app, 
     slots_response = client.get(f"/api/v1/stalls/{stall_id}/slots")
     assert slots_response.status_code == 200
     assert slots_response.get_json()["slots"][0]["id"] == slot_id
+    assert client.get(f"/stall_photos/{photo_id}/").status_code == 200
 
     revoked = runner.invoke(
         args=[
@@ -491,6 +599,7 @@ def test_pending_certification_blocks_discovery_and_booking_until_approved(app, 
     assert revoked.exit_code == 0
     assert b"Pending Harbor Stall" not in client.get("/").data
     assert client.get(f"/api/v1/stalls/{stall_id}/slots").status_code == 404
+    assert client.get(f"/stall_photos/{photo_id}/").status_code == 404
 
 
 def test_provider_cannot_publish_hourly_date_below_its_minimum(app, client):
@@ -774,7 +883,7 @@ def test_api_booking_flow(app, client):
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     assert response.get_json()["status"] == "ok"
-    assert response.get_json()["release"] == "20261004.09"
+    assert response.get_json()["release"] == "20261004.10"
 
     response = client.get(f"/api/v1/stalls/{stall.id}/slots")
     assert response.status_code == 200
@@ -782,6 +891,8 @@ def test_api_booking_flow(app, client):
 
     stalls_payload = client.get("/api/v1/stalls").get_json()["stalls"]
     assert stalls_payload[0]["certification_status"] == "approved"
+    assert stalls_payload[0]["photo_urls"]
+    assert stalls_payload[0]["photo_urls"][0].startswith("/stall_photos/")
     assert "evidence_url" not in stalls_payload[0]
 
     with client.session_transaction() as session:

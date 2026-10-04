@@ -17,6 +17,10 @@ These existing tables support the customer-facing service:
 - `stall`: a provider-owned physical stall or rentable space. It records the
   indoor/outdoor environment, whether it rents hourly or as a complete daily
   period, and the 1/2/3-hour minimum for hourly reservations.
+- `stall_photo`: one public JPG, PNG, or WebP listing image stored in PostgreSQL
+  with its display order, byte size, and digest. New stalls require 1–5 photos;
+  image bytes are loaded only by the media endpoint and are served only while
+  the stall certification is approved.
 - `stall_certification`: private legal/contact evidence and manual review state
   for one stall, including the reviewing admin. Missing, pending, and rejected
   certifications prevent public discovery and booking. Evidence must be supplied

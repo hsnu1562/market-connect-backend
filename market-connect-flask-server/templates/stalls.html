@@ -143,6 +143,25 @@
         }
         .stall-card[hidden] { display: none; }
 
+        .stall-cover {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            margin-bottom: 22px;
+            border: 1px solid var(--border-line);
+            object-fit: cover;
+            background:
+                linear-gradient(135deg, rgba(74, 124, 89, 0.18), rgba(201, 111, 138, 0.16)),
+                #f4efe2;
+        }
+        .stall-cover--empty {
+            display: grid;
+            place-items: center;
+            color: #666;
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+        }
+
         .stall-name { font-family: 'Playfair Display', serif; font-size: 1.8rem; margin: 0 0 10px; }
         .stall-address { color: #555; margin-bottom: 20px; font-size: 0.9rem; }
         .stall-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
@@ -279,6 +298,11 @@
         <div class="stall-container" id="stall-list">
             {% for stall in stalls %}
                 <article class="stall-card" data-stall-id="{{ stall.id }}">
+                    {% if stall.photos %}
+                        <img class="stall-cover" src="{{ url_for('web_stalls.stall_photo', photo_id=stall.photos[0].id) }}" alt="{{ stall.loc_name }} 攤位照片" loading="lazy" decoding="async">
+                    {% else %}
+                        <div class="stall-cover stall-cover--empty" aria-label="此攤位尚無照片">PHOTO PENDING</div>
+                    {% endif %}
                     <h2 class="stall-name">{{ stall.loc_name }}</h2>
                     <div class="stall-address">📍 {{ stall.city }}{{ stall.district }}{{ stall.road }}</div>
                     <div class="stall-meta">
