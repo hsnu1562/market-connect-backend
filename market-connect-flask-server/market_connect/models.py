@@ -23,6 +23,51 @@ PAYMENT_FAILED = "FAILED"
 PAYMENT_REFUNDED = "REFUNDED"
 PAYMENT_LEGACY_RECORDED = "LEGACY_RECORDED"
 
+VERIFICATION_PENDING = "PENDING"
+VERIFICATION_VERIFIED = "VERIFIED"
+VERIFICATION_SUSPENDED = "SUSPENDED"
+VERIFICATION_REVOKED = "REVOKED"
+VERIFICATION_STATES = frozenset(
+    {
+        VERIFICATION_PENDING,
+        VERIFICATION_VERIFIED,
+        VERIFICATION_SUSPENDED,
+        VERIFICATION_REVOKED,
+    }
+)
+
+OPPORTUNITY_EVENT = "EVENT"
+OPPORTUNITY_LONG_TERM = "LONG_TERM"
+OPPORTUNITY_RECURRING = "RECURRING"
+OPPORTUNITY_TYPES = frozenset(
+    {OPPORTUNITY_EVENT, OPPORTUNITY_LONG_TERM, OPPORTUNITY_RECURRING}
+)
+
+PUBLICATION_DRAFT = "DRAFT"
+PUBLICATION_PUBLISHED = "PUBLISHED"
+PUBLICATION_PAUSED = "PAUSED"
+PUBLICATION_ARCHIVED = "ARCHIVED"
+PUBLICATION_STATES = frozenset(
+    {
+        PUBLICATION_DRAFT,
+        PUBLICATION_PUBLISHED,
+        PUBLICATION_PAUSED,
+        PUBLICATION_ARCHIVED,
+    }
+)
+
+INVENTORY_DRAFT = "DRAFT"
+INVENTORY_ACTIVE = "ACTIVE"
+INVENTORY_PAUSED = "PAUSED"
+INVENTORY_CLOSED = "CLOSED"
+INVENTORY_STATES = frozenset(
+    {INVENTORY_DRAFT, INVENTORY_ACTIVE, INVENTORY_PAUSED, INVENTORY_CLOSED}
+)
+
+OPPORTUNITY_PUBLIC = "PUBLIC"
+OPPORTUNITY_PRIVATE = "PRIVATE"
+BOOKING_POLICY_INSTANT = "INSTANT"
+
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -83,6 +128,7 @@ class User(db.Model):
         back_populates="reviewed_by",
         foreign_keys="StallCertification.reviewed_by_user_id",
     )
+    managed_providers = db.relationship("Provider", back_populates="managing_user")
 
     @property
     def display_name(self) -> str:
@@ -208,6 +254,307 @@ class VendorProfile(db.Model):
 
     def __repr__(self) -> str:
         return f"<VendorProfile {self.brand_name!r}>"
+
+
+class Provider(db.Model):
+    __tablename__ = "provider"
+
+    id = db.Column(db.Integer, primary_key=True)
+    managing_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    display_name = db.Column(db.String(120), nullable=False)
+    legal_name = db.Column(db.String(160))
+    description = db.Column(db.Text)
+    contact_name = db.Column(db.String(100), nullable=False)
+    contact_phone = db.Column(db.String(30), nullable=False)
+    contact_email = db.Column(db.String(320))
+    verification_status = db.Column(
+        db.String(20),
+        default=VERIFICATION_PENDING,
+        server_default=VERIFICATION_PENDING,
+        nullable=False,
+        index=True,
+    )
+    verified_at = db.Column(db.DateTime(timezone=True))
+    verification_expires_at = db.Column(db.DateTime(timezone=True))
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        server_default=db.func.now(),
+        nullable=False,
+    )
+    updated_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        server_default=db.func.now(),
+        nullable=False,
+    )
+
+    managing_user = db.relationship("User", back_populates="managed_providers")
+    venues = db.relationship(
+        "Venue", back_populates="provider", cascade="all, delete-orphan"
+    )
+    opportunities = db.relationship(
+        "Opportunity", back_populates="provider", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "verification_status IN ('PENDING', 'VERIFIED', 'SUSPENDED', 'REVOKED')",
+            name="ck_provider_verification_status",
+        ),
+    )
+
+
+class Venue(db.Model):
+    __tablename__ = "venue"
+
+    id = db.Column(db.Integer, primary_key=True)
+    provider_id = db.Column(
+        db.Integer,
+        db.ForeignKey("provider.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    name = db.Column(db.String(140), nullable=False)
+    country_code = db.Column(db.String(2), default="TW", server_default="TW", nullable=False)
+    city = db.Column(db.String(80), nullable=False)
+    district = db.Column(db.String(80))
+    address_line = db.Column(db.String(255), nullable=False)
+    postal_code = db.Column(db.String(20))
+    business_description = db.Column(db.Text)
+    verification_status = db.Column(
+        db.String(20),
+        default=VERIFICATION_PENDING,
+        server_default=VERIFICATION_PENDING,
+        nullable=False,
+        index=True,
+    )
+    verified_at = db.Column(db.DateTime(timezone=True))
+    verification_expires_at = db.Column(db.DateTime(timezone=True))
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        server_default=db.func.now(),
+        nullable=False,
+    )
+    updated_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        server_default=db.func.now(),
+        nullable=False,
+    )
+
+    provider = db.relationship("Provider", back_populates="venues")
+    opportunities = db.relationship("Opportunity", back_populates="venue")
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "verification_status IN ('PENDING', 'VERIFIED', 'SUSPENDED', 'REVOKED')",
+            name="ck_venue_verification_status",
+        ),
+    )
+
+
+class Opportunity(db.Model):
+    __tablename__ = "opportunity"
+
+    id = db.Column(db.Integer, primary_key=True)
+    provider_id = db.Column(
+        db.Integer,
+        db.ForeignKey("provider.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    venue_id = db.Column(
+        db.Integer,
+        db.ForeignKey("venue.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    title = db.Column(db.String(180), nullable=False)
+    description = db.Column(db.Text)
+    opportunity_type = db.Column(db.String(20), nullable=False)
+    visibility = db.Column(
+        db.String(20),
+        default=OPPORTUNITY_PUBLIC,
+        server_default=OPPORTUNITY_PUBLIC,
+        nullable=False,
+    )
+    publication_status = db.Column(
+        db.String(20),
+        default=PUBLICATION_DRAFT,
+        server_default=PUBLICATION_DRAFT,
+        nullable=False,
+        index=True,
+    )
+    booking_policy = db.Column(
+        db.String(30),
+        default=BOOKING_POLICY_INSTANT,
+        server_default=BOOKING_POLICY_INSTANT,
+        nullable=False,
+    )
+    pricing_context = db.Column(db.Text)
+    requirements_summary = db.Column(db.Text)
+    required_requirement_types = db.Column(db.JSON, nullable=False, default=list)
+    cancellation_policy = db.Column(db.Text)
+    published_at = db.Column(db.DateTime(timezone=True))
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        server_default=db.func.now(),
+        nullable=False,
+    )
+    updated_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        server_default=db.func.now(),
+        nullable=False,
+    )
+
+    provider = db.relationship("Provider", back_populates="opportunities")
+    venue = db.relationship("Venue", back_populates="opportunities")
+    inventory_groups = db.relationship(
+        "InventoryGroup", back_populates="opportunity", cascade="all, delete-orphan"
+    )
+
+    __table_args__ = (
+        db.CheckConstraint(
+            "opportunity_type IN ('EVENT', 'LONG_TERM', 'RECURRING')",
+            name="ck_opportunity_type",
+        ),
+        db.CheckConstraint(
+            "visibility IN ('PUBLIC', 'PRIVATE')",
+            name="ck_opportunity_visibility",
+        ),
+        db.CheckConstraint(
+            "publication_status IN ('DRAFT', 'PUBLISHED', 'PAUSED', 'ARCHIVED')",
+            name="ck_opportunity_publication_status",
+        ),
+        db.CheckConstraint(
+            "booking_policy = 'INSTANT'",
+            name="ck_opportunity_booking_policy",
+        ),
+    )
+
+
+class InventoryGroup(db.Model):
+    __tablename__ = "inventory_group"
+
+    id = db.Column(db.Integer, primary_key=True)
+    opportunity_id = db.Column(
+        db.Integer,
+        db.ForeignKey("opportunity.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    service_period_start = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
+    service_period_end = db.Column(db.DateTime(timezone=True), nullable=False)
+    allocated_capacity = db.Column(db.Integer, nullable=False)
+    price_amount = db.Column(db.Integer, nullable=False)
+    currency = db.Column(db.String(3), default="TWD", server_default="TWD", nullable=False)
+    status = db.Column(
+        db.String(20),
+        default=INVENTORY_DRAFT,
+        server_default=INVENTORY_DRAFT,
+        nullable=False,
+        index=True,
+    )
+    required_requirement_types = db.Column(db.JSON, nullable=False, default=list)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        server_default=db.func.now(),
+        nullable=False,
+    )
+    updated_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        server_default=db.func.now(),
+        nullable=False,
+    )
+
+    opportunity = db.relationship("Opportunity", back_populates="inventory_groups")
+    category_quotas = db.relationship(
+        "InventoryCategoryQuota",
+        back_populates="inventory_group",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+    bookings = db.relationship("Booking", back_populates="inventory_group")
+
+    __table_args__ = (
+        db.CheckConstraint("allocated_capacity >= 0", name="ck_inventory_group_capacity"),
+        db.CheckConstraint("price_amount >= 0", name="ck_inventory_group_price"),
+        db.CheckConstraint(
+            "service_period_end > service_period_start",
+            name="ck_inventory_group_service_period",
+        ),
+        db.CheckConstraint(
+            "status IN ('DRAFT', 'ACTIVE', 'PAUSED', 'CLOSED')",
+            name="ck_inventory_group_status",
+        ),
+    )
+
+
+class InventoryCategoryQuota(db.Model):
+    __tablename__ = "inventory_category_quota"
+
+    id = db.Column(db.Integer, primary_key=True)
+    inventory_group_id = db.Column(
+        db.Integer,
+        db.ForeignKey("inventory_group.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    category = db.Column(db.String(40), nullable=False)
+    capacity = db.Column(db.Integer, nullable=False)
+
+    inventory_group = db.relationship("InventoryGroup", back_populates="category_quotas")
+
+    __table_args__ = (
+        UniqueConstraint(
+            "inventory_group_id",
+            "category",
+            name="uq_inventory_category_quota_group_category",
+        ),
+        db.CheckConstraint("capacity >= 0", name="ck_inventory_category_quota_capacity"),
+    )
+
+
+class SupplyAuditEvent(db.Model):
+    __tablename__ = "supply_audit_event"
+
+    id = db.Column(db.Integer, primary_key=True)
+    actor_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("user.id", ondelete="SET NULL"),
+        index=True,
+    )
+    provider_id = db.Column(
+        db.Integer,
+        db.ForeignKey("provider.id", ondelete="SET NULL"),
+        index=True,
+    )
+    entity_type = db.Column(db.String(40), nullable=False)
+    entity_id = db.Column(db.Integer, nullable=False)
+    event_type = db.Column(db.String(60), nullable=False, index=True)
+    before_data = db.Column(db.JSON)
+    after_data = db.Column(db.JSON)
+    created_at = db.Column(
+        db.DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        server_default=db.func.now(),
+        nullable=False,
+    )
 
 
 class Stall(db.Model):
@@ -480,7 +827,13 @@ class BookingRequirements(db.Model):
 class Booking(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    slot_id = db.Column(db.Integer, db.ForeignKey("slot.id"), nullable=False)
+    slot_id = db.Column(db.Integer, db.ForeignKey("slot.id"))
+    inventory_group_id = db.Column(
+        db.Integer,
+        db.ForeignKey("inventory_group.id", ondelete="RESTRICT"),
+        index=True,
+    )
+    vendor_category = db.Column(db.String(40), index=True)
     payment_id = db.Column(
         db.Integer,
         db.ForeignKey("payment_transaction.id", ondelete="SET NULL"),
@@ -521,6 +874,7 @@ class Booking(db.Model):
 
     user = db.relationship("User", back_populates="bookings")
     slot = db.relationship("Slot", back_populates="bookings")
+    inventory_group = db.relationship("InventoryGroup", back_populates="bookings")
     payment = db.relationship("PaymentTransaction", back_populates="bookings")
     requirements = db.relationship("BookingRequirements", back_populates="bookings")
     reviews = db.relationship("Review", back_populates="booking", cascade="all, delete-orphan")
@@ -534,6 +888,12 @@ class Booking(db.Model):
                 "reservation_status IN ('HELD', 'CONFIRMED')"
             ),
             sqlite_where=db.text("reservation_status IN ('HELD', 'CONFIRMED')"),
+        ),
+        db.Index(
+            "ix_booking_inventory_active",
+            "inventory_group_id",
+            "reservation_status",
+            "hold_expires_at",
         ),
     )
 

@@ -21,6 +21,8 @@ It preserves the prototype's main flows:
 - expiring reservation holds with a provider-independent payment state machine
 - booking history
 - two-way reviews and reputation updates
+- verified Provider/Venue supply, published Opportunities, and allocated
+  InventoryGroup capacity with optional category allowlists
 
 For a detailed explanation of why HTML files live in this backend repo and how
 the folders should be maintained, read [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md).
@@ -34,6 +36,9 @@ Reservation holds, payment verification, and historical-data handling are
 documented in [docs/BOOKING_LIFECYCLE.md](docs/BOOKING_LIFECYCLE.md).
 Vendor identity, progressive onboarding, and public/private profile fields are
 documented in [docs/VENDOR_PROFILES.md](docs/VENDOR_PROFILES.md).
+The Phase 3A supply hierarchy, derived availability, quota semantics, and lock
+ordering are documented in
+[docs/PHASE3_SUPPLY_INVENTORY.md](docs/PHASE3_SUPPLY_INVENTORY.md).
 
 ## Run Locally
 
@@ -79,6 +84,16 @@ python -m pytest -q
 
 The test suite uses temporary databases, so `init-db`, `seed-demo`, and a
 production `DATABASE_URL` are not required before running it.
+
+PostgreSQL contention tests run only against an explicitly disposable database:
+
+```bash
+TEST_DATABASE_URL=postgresql://... \
+SPACIS_ALLOW_DESTRUCTIVE_POSTGRES_TESTS=1 \
+python -m pytest -m postgres -q
+```
+
+Never set `TEST_DATABASE_URL` to the production `DATABASE_URL`.
 
 ## Deploy On Render
 
@@ -126,9 +141,11 @@ compatibility. Browser copy uses Vendor / 攤商 and Provider / 供應方.
 - `market_connect/`: application package.
 - `market_connect/api/v1/`: JSON API routes under `/api/v1`.
 - `market_connect/web/`: browser page routes for Providers and Vendors.
-- `market_connect/services/`: shared booking, payment, review, and seed logic.
-- `market_connect/models.py`: SQLAlchemy models for users, stalls,
-  certifications and encrypted evidence, slots, bookings, prices, and reviews.
+- `market_connect/services/`: shared supply, inventory, booking, payment, review,
+  and seed logic.
+- `market_connect/models.py`: SQLAlchemy models for users, verified supply,
+  allocated inventory, stalls, certifications and encrypted evidence, bookings,
+  prices, and reviews.
 - `templates/`: server-rendered frontend HTML files. They are frontend-facing,
   but they stay in this Flask backend repo because Flask renders them on the
   server with `render_template(...)`.
@@ -149,6 +166,14 @@ compatibility. Browser copy uses Vendor / 攤商 and Provider / 供應方.
 - `GET /api/v1/bookings/<qr_code>`: fetch one accessible QR-code booking group.
 - `POST /api/v1/payments`: reserved compatibility endpoint. It checks session
   ownership but returns HTTP 503 until a real payment provider is connected.
+- `GET /api/v1/opportunities/<opportunity_id>`: public Opportunity details and
+  authoritative aggregate inventory availability.
+- `POST /api/v1/inventory-groups/<inventory_group_id>/reservations`: create one
+  temporary inventory hold for the signed-in Vendor.
+- `POST /api/v1/reservations/<booking_id>/cancel`: idempotently cancel an owned
+  inventory reservation and release its capacity.
+- `/api/v1/supply/...`: authenticated founder/admin and Provider-owned supply
+  setup, verification, publication, allocation, status, and category quotas.
 
 State-changing API calls require the signed-in Flask session and an
 `X-CSRF-Token` header. Read-only stall routes remain public.

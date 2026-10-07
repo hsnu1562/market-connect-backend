@@ -5,12 +5,13 @@ import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 
+import flask_migrate
 import pytest
 from flask import Flask
-from flask_migrate import upgrade
+from flask_migrate import downgrade, upgrade
 from sqlalchemy import create_engine, delete, inspect, text
 from sqlalchemy.engine import URL, make_url
 from sqlalchemy.exc import IntegrityError
@@ -23,15 +24,24 @@ from market_connect.models import (
     RESERVATION_EXPIRED,
     RESERVATION_HELD,
     Booking,
+    InventoryCategoryQuota,
+    InventoryGroup,
+    Opportunity,
     PaymentTransaction,
+    Provider,
     Stall,
     StallCertification,
     User,
     VendorProfile,
+    Venue,
 )
 from market_connect.services.bookings import (
     BookingSelectionError,
     create_booking_for_slots,
+)
+from market_connect.services.inventory import (
+    InventoryUnavailable,
+    create_inventory_hold,
 )
 
 
@@ -94,7 +104,7 @@ def postgres_harness() -> PostgresHarness:
         admin_engine.dispose()
 
 
-def test_postgres_migrates_09_to_11_and_applies_legacy_defaults(
+def test_postgres_migrates_09_to_12_and_applies_legacy_defaults(
     postgres_harness: PostgresHarness,
 ) -> None:
     with postgres_harness.app.app_context():
@@ -158,6 +168,11 @@ def test_postgres_migrates_09_to_11_and_applies_legacy_defaults(
             "payment_transaction",
             "vendor_profile",
             "booking_requirement",
+            "provider",
+            "venue",
+            "opportunity",
+            "inventory_group",
+            "inventory_category_quota",
         }.issubset(inspect(db.engine).get_table_names())
 
 
@@ -320,6 +335,156 @@ def test_postgres_phase2_foreign_key_delete_actions(
         db.session.execute(delete(User).where(User.id == user_id))
         db.session.commit()
         assert db.session.get(VendorProfile, profile_id) is None
+
+
+def test_postgres_inventory_lock_allows_only_one_final_capacity_hold(
+    postgres_harness: PostgresHarness,
+) -> None:
+    with postgres_harness.app.app_context():
+        _upgrade_to_head()
+        seeded = _seed_phase3_inventory(allocated_capacity=1)
+    barrier = threading.Barrier(2)
+
+    def attempt_hold(user_id: int) -> bool:
+        with postgres_harness.app.app_context():
+            try:
+                barrier.wait(timeout=10)
+                create_inventory_hold(
+                    user_id,
+                    seeded["inventory_group_id"],
+                    now=datetime(2029, 1, 1, tzinfo=UTC),
+                )
+                return True
+            except InventoryUnavailable:
+                db.session.rollback()
+                return False
+            finally:
+                db.session.remove()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(attempt_hold, seeded["tenant_ids"]))
+
+    assert sorted(results) == [False, True]
+    with postgres_harness.app.app_context():
+        assert Booking.query.filter_by(
+            inventory_group_id=seeded["inventory_group_id"],
+            reservation_status=RESERVATION_HELD,
+        ).count() == 1
+
+
+def test_postgres_inventory_lock_allows_only_one_final_category_hold(
+    postgres_harness: PostgresHarness,
+) -> None:
+    with postgres_harness.app.app_context():
+        _upgrade_to_head()
+        seeded = _seed_phase3_inventory(
+            allocated_capacity=5,
+            category_quota=1,
+        )
+    barrier = threading.Barrier(2)
+
+    def attempt_hold(user_id: int) -> bool:
+        with postgres_harness.app.app_context():
+            try:
+                barrier.wait(timeout=10)
+                create_inventory_hold(
+                    user_id,
+                    seeded["inventory_group_id"],
+                    now=datetime(2029, 1, 1, tzinfo=UTC),
+                )
+                return True
+            except InventoryUnavailable:
+                db.session.rollback()
+                return False
+            finally:
+                db.session.remove()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        results = list(executor.map(attempt_hold, seeded["tenant_ids"]))
+
+    assert sorted(results) == [False, True]
+    with postgres_harness.app.app_context():
+        assert Booking.query.filter_by(
+            inventory_group_id=seeded["inventory_group_id"],
+            vendor_category="food",
+            reservation_status=RESERVATION_HELD,
+        ).count() == 1
+
+
+def test_postgres_migration_12_refuses_downgrade_with_inventory_reservation(
+    postgres_harness: PostgresHarness,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    phase3_tables = {
+        "provider",
+        "venue",
+        "opportunity",
+        "inventory_group",
+        "inventory_category_quota",
+        "supply_audit_event",
+    }
+    with postgres_harness.app.app_context():
+        _upgrade_to_head()
+        seeded = _seed_phase3_inventory(allocated_capacity=1)
+        booking = create_inventory_hold(
+            seeded["tenant_ids"][0],
+            seeded["inventory_group_id"],
+            now=datetime(2029, 1, 1, tzinfo=UTC),
+        )
+        inventory_group = db.session.get(
+            InventoryGroup,
+            seeded["inventory_group_id"],
+        )
+        booking_id = booking.id
+        inventory_group_id = inventory_group.id
+        opportunity_id = inventory_group.opportunity_id
+        provider_id = inventory_group.opportunity.provider_id
+        venue_id = inventory_group.opportunity.venue_id
+
+        before_revision = db.session.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+        before_tables = set(inspect(db.engine).get_table_names())
+        before_booking_columns = {
+            column["name"]: (str(column["type"]), column["nullable"])
+            for column in inspect(db.engine).get_columns("booking")
+        }
+        assert before_revision == "20261004_12"
+        assert phase3_tables.issubset(before_tables)
+        assert booking.inventory_group_id == inventory_group_id
+        assert db.session.get(Booking, booking_id) is not None
+        db.session.remove()
+
+        migration_errors = []
+        monkeypatch.setattr(flask_migrate.log, "error", migration_errors.append)
+        with pytest.raises(SystemExit) as downgrade_error:
+            downgrade(directory=str(MIGRATIONS_DIR), revision="20261004_11")
+        assert downgrade_error.value.code == 1
+        assert migration_errors == [
+            "Error: Cannot downgrade while inventory-based reservations exist."
+        ]
+
+        db.session.remove()
+        after_revision = db.session.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+        after_tables = set(inspect(db.engine).get_table_names())
+        after_booking_columns = {
+            column["name"]: (str(column["type"]), column["nullable"])
+            for column in inspect(db.engine).get_columns("booking")
+        }
+        preserved_booking = db.session.get(Booking, booking_id)
+
+        assert after_revision == "20261004_12"
+        assert after_tables == before_tables
+        assert phase3_tables.issubset(after_tables)
+        assert after_booking_columns == before_booking_columns
+        assert preserved_booking is not None
+        assert preserved_booking.inventory_group_id == inventory_group_id
+        assert db.session.get(InventoryGroup, inventory_group_id) is not None
+        assert db.session.get(Opportunity, opportunity_id) is not None
+        assert db.session.get(Provider, provider_id) is not None
+        assert db.session.get(Venue, venue_id) is not None
 
 
 def _validated_test_database_url() -> URL:
@@ -490,7 +655,7 @@ def _upgrade_to_head() -> None:
     upgrade(directory=str(MIGRATIONS_DIR))
     assert db.session.execute(
         text("SELECT version_num FROM alembic_version")
-    ).scalar_one() == "20261004_11"
+    ).scalar_one() == "20261004_12"
 
 
 def _seed_revision_09_inventory() -> dict[str, int | list[int]]:
@@ -621,6 +786,83 @@ def _seed_inventory(vendor_count: int = 1) -> dict[str, int | list[int]]:
     return {
         "provider_id": provider.id,
         "slot_id": slot_id,
+        "tenant_ids": [tenant.id for tenant in tenants],
+    }
+
+
+def _seed_phase3_inventory(
+    *,
+    allocated_capacity: int,
+    category_quota: int | None = None,
+) -> dict[str, int | list[int]]:
+    manager = User(
+        username=f"postgres-phase3-manager-{uuid.uuid4().hex[:12]}",
+        first_name="Postgres",
+        last_name="Manager",
+        role="Landlord",
+    )
+    tenants = []
+    for index in range(2):
+        tenant = User(
+            username=f"postgres-phase3-vendor-{index}-{uuid.uuid4().hex[:12]}",
+            first_name="Postgres",
+            last_name=f"Vendor {index}",
+            role="Tenant",
+        )
+        tenant.vendor_profile = VendorProfile(
+            brand_name=f"Postgres Food Brand {index}",
+            primary_category="food",
+            contact_name=f"Postgres Vendor {index}",
+            contact_phone=f"0912888{index:03d}",
+            food_registration_number=f"PG-FOOD-{index}",
+        )
+        tenants.append(tenant)
+
+    provider = Provider(
+        managing_user=manager,
+        display_name="PostgreSQL Phase 3 Provider",
+        contact_name="Postgres Manager",
+        contact_phone="0912000000",
+        verification_status="VERIFIED",
+        verified_at=datetime(2028, 1, 1, tzinfo=UTC),
+    )
+    venue = Venue(
+        provider=provider,
+        name="PostgreSQL Phase 3 Venue",
+        city="Taipei",
+        address_line="No. 3 Test Road",
+        verification_status="VERIFIED",
+        verified_at=datetime(2028, 1, 1, tzinfo=UTC),
+    )
+    opportunity = Opportunity(
+        provider=provider,
+        venue=venue,
+        title="PostgreSQL Contention Market",
+        opportunity_type="EVENT",
+        visibility="PUBLIC",
+        publication_status="PUBLISHED",
+        booking_policy="INSTANT",
+        required_requirement_types=[],
+        published_at=datetime(2028, 1, 1, tzinfo=UTC),
+    )
+    inventory_group = InventoryGroup(
+        opportunity=opportunity,
+        service_period_start=datetime(2030, 1, 1, 8, tzinfo=UTC),
+        service_period_end=datetime(2030, 1, 1, 18, tzinfo=UTC),
+        allocated_capacity=allocated_capacity,
+        price_amount=500,
+        currency="TWD",
+        status="ACTIVE",
+        required_requirement_types=[],
+    )
+    if category_quota is not None:
+        inventory_group.category_quotas.append(
+            InventoryCategoryQuota(category="food", capacity=category_quota)
+        )
+    db.session.add_all([manager, *tenants, inventory_group])
+    db.session.commit()
+    return {
+        "inventory_group_id": inventory_group.id,
         "tenant_ids": [tenant.id for tenant in tenants],
     }
 

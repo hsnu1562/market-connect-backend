@@ -1,9 +1,10 @@
-# PostgreSQL Phase 2 Integration Tests
+# PostgreSQL Phase 2/3 Integration Tests
 
 These tests create the legacy pre-Alembic tables, run the real migration chain
 from base through revision 09, and verify the revision-09 schema before testing
-the 09 -> 10 -> 11 transition. They also exercise PostgreSQL partial indexes,
-row locking, unique constraints, and foreign-key actions. They never read
+the 09 -> 10 -> 11 -> 12 transition. They also exercise PostgreSQL partial
+indexes, row locking, unique constraints, foreign-key actions, final inventory
+capacity contention, and final category-quota contention. They never read
 `DATABASE_URL` as a fallback and create an isolated temporary schema inside the
 configured test database. The harness never substitutes `alembic stamp` for
 schema construction.

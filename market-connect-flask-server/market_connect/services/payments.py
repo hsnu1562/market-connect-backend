@@ -14,9 +14,11 @@ from ..models import (
     RESERVATION_EXPIRED,
     RESERVATION_HELD,
     Booking,
+    InventoryGroup,
     PaymentTransaction,
 )
 from .bookings import as_utc, hold_is_expired, utc_now
+from .inventory import InventoryError, ensure_inventory_payment_allowed
 
 
 class PaymentStateError(ValueError):
@@ -46,6 +48,11 @@ def begin_payment(
         booking.reservation_status != RESERVATION_HELD for booking in bookings
     ):
         raise PaymentStateError("Reservation is not eligible for payment.")
+    try:
+        ensure_inventory_payment_allowed(bookings, now=current_time)
+    except InventoryError as error:
+        db.session.rollback()
+        raise PaymentStateError(str(error)) from error
 
     payment.provider = provider_name
     payment.status = PAYMENT_PROCESSING
@@ -109,6 +116,24 @@ def verify_payment(
 def _locked_payment_group(
     payment_id: int,
 ) -> tuple[PaymentTransaction, list[Booking]]:
+    inventory_group_ids = {
+        row[0]
+        for row in db.session.query(Booking.inventory_group_id)
+        .filter_by(payment_id=payment_id)
+        .all()
+        if row[0] is not None
+    }
+    if len(inventory_group_ids) > 1:
+        raise PaymentStateError("Payment group has inconsistent inventory targets.")
+    if inventory_group_ids:
+        inventory_group = (
+            InventoryGroup.query.filter_by(id=inventory_group_ids.pop())
+            .with_for_update()
+            .first()
+        )
+        if inventory_group is None:
+            raise PaymentStateError("Inventory group was not found.")
+
     bookings = (
         Booking.query.filter_by(payment_id=payment_id)
         .order_by(Booking.id)

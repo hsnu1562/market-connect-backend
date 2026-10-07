@@ -74,3 +74,15 @@ payment POST endpoints return HTTP 503. Do not expose these trusted service
 functions directly as ordinary browser actions. A real integration must verify
 signed server-to-server callbacks according to the selected PSP documentation,
 must be idempotent, and must never store card numbers.
+
+## Phase 3 Inventory Lock Order
+
+Inventory-backed reservation and payment operations lock rows in this order:
+
+```text
+InventoryGroup -> ordered Booking rows -> ordered PaymentTransaction rows
+```
+
+This keeps capacity and category-quota checks serialized before reservation or
+payment transitions. Provider or Venue suspension blocks new holds and payment
+initiation, but does not cancel or release existing confirmed reservations.

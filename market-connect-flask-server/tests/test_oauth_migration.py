@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,7 @@ from sqlalchemy import inspect, text
 
 from app import create_app
 from models import Stall, StallCertification, User, db
+from market_connect.models import Booking, InventoryGroup, Opportunity, Provider, Venue
 
 
 MIGRATIONS_DIR = Path(__file__).resolve().parents[1] / "migrations"
@@ -122,6 +124,12 @@ def test_initial_migration_upgrades_legacy_user_schema(tmp_path):
             "stall_certification_document",
             "vendor_profile",
             "booking_requirement",
+            "provider",
+            "venue",
+            "opportunity",
+            "inventory_group",
+            "inventory_category_quota",
+            "supply_audit_event",
         }.issubset(
             inspector.get_table_names()
         )
@@ -186,7 +194,7 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
         upgrade(directory=str(MIGRATIONS_DIR))
 
         revision = db.session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        assert revision == "20261004_11"
+        assert revision == "20261004_12"
         inspector = inspect(db.engine)
         stall_columns = {column["name"] for column in inspector.get_columns("stall")}
         slot_columns = {column["name"] for column in inspector.get_columns("slot")}
@@ -202,6 +210,14 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
         assert "payment_transaction" in inspector.get_table_names()
         assert "vendor_profile" in inspector.get_table_names()
         assert "booking_requirement" in inspector.get_table_names()
+        assert {
+            "provider",
+            "venue",
+            "opportunity",
+            "inventory_group",
+            "inventory_category_quota",
+            "supply_audit_event",
+        }.issubset(inspector.get_table_names())
         booking_columns = {column["name"] for column in inspector.get_columns("booking")}
         assert {
             "payment_id",
@@ -209,7 +225,87 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
             "hold_expires_at",
             "confirmed_at",
             "requirements_id",
+            "inventory_group_id",
+            "vendor_category",
         }.issubset(booking_columns)
+        slot_column = next(
+            column
+            for column in inspector.get_columns("booking")
+            if column["name"] == "slot_id"
+        )
+        assert slot_column["nullable"] is True
+
+
+def test_supply_migration_refuses_downgrade_with_inventory_reservation(tmp_path):
+    app = _migration_app(tmp_path / "phase3-downgrade-guard.db")
+
+    with app.app_context():
+        db.create_all()
+        upgrade(directory=str(MIGRATIONS_DIR))
+        manager = User(
+            username="phase3-downgrade-manager",
+            first_name="Supply",
+            last_name="Manager",
+            role="Landlord",
+        )
+        vendor = User(
+            username="phase3-downgrade-vendor",
+            first_name="Test",
+            last_name="Vendor",
+            role="Tenant",
+        )
+        provider = Provider(
+            managing_user=manager,
+            display_name="Downgrade Provider",
+            contact_name="Supply Manager",
+            contact_phone="0912000000",
+            verification_status="VERIFIED",
+        )
+        venue = Venue(
+            provider=provider,
+            name="Downgrade Venue",
+            city="Taipei",
+            address_line="No. 12 Migration Road",
+            verification_status="VERIFIED",
+        )
+        opportunity = Opportunity(
+            provider=provider,
+            venue=venue,
+            title="Downgrade Opportunity",
+            opportunity_type="EVENT",
+            publication_status="PUBLISHED",
+            required_requirement_types=[],
+        )
+        inventory_group = InventoryGroup(
+            opportunity=opportunity,
+            service_period_start=datetime.now(UTC) + timedelta(days=1),
+            service_period_end=datetime.now(UTC) + timedelta(days=1, hours=8),
+            allocated_capacity=1,
+            price_amount=500,
+            status="ACTIVE",
+            required_requirement_types=[],
+        )
+        booking = Booking(
+            user=vendor,
+            inventory_group=inventory_group,
+            vendor_category="handmade",
+            qr_code="PHASE3-DOWNGRADE",
+            reservation_status="HELD",
+            hold_expires_at=datetime.now(UTC) + timedelta(minutes=15),
+        )
+        db.session.add(booking)
+        db.session.commit()
+
+        with pytest.raises(SystemExit) as downgrade_error:
+            downgrade(directory=str(MIGRATIONS_DIR), revision="20261004_11")
+        assert downgrade_error.value.code == 1
+
+        assert db.session.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one() == "20261004_12"
+        assert "inventory_group_id" in {
+            column["name"] for column in inspect(db.engine).get_columns("booking")
+        }
 
 
 def test_booking_migration_preserves_legacy_paid_as_unverified_history(tmp_path):
