@@ -1,0 +1,49 @@
+{% if navigation_user %}
+<header class="mc-nav">
+    <div class="mc-nav__inner">
+        <a class="mc-nav__brand" href="{{ url_for('web_auth.index') }}" aria-label="SPACIS 首頁">
+            <strong>SPACIS</strong>
+            <small>攤位媒合與空間預約</small>
+        </a>
+
+        <nav class="mc-nav__links" aria-label="會員主要導覽">
+            <a class="mc-nav__link {% if nav_active == 'home' %}is-active{% endif %}" href="{{ url_for('web_auth.index') }}"{% if nav_active == 'home' %} aria-current="page"{% endif %}>首頁</a>
+            <a class="mc-nav__link {% if nav_active == 'marketplace' %}is-active{% endif %}" href="{{ url_for('web_stalls.stall_list') }}"{% if nav_active == 'marketplace' %} aria-current="page"{% endif %}>找攤位</a>
+            <a class="mc-nav__link {% if nav_active == 'tenant' %}is-active{% endif %}" href="{% if navigation_user.has_role('Tenant') %}{{ url_for('web_auth.tenant_hub', user_id=navigation_user.id) }}{% else %}{{ url_for('web_auth.account', intent='tenant') }}{% endif %}"{% if nav_active == 'tenant' %} aria-current="page"{% endif %}>{% if navigation_user.has_role('Tenant') %}攤商中心{% else %}成為攤商{% endif %}</a>
+            {% if navigation_user.has_role('Tenant') %}<a class="mc-nav__link {% if nav_active == 'vendor-profile' %}is-active{% endif %}" href="{{ url_for('web_vendors.profile_setup') }}"{% if nav_active == 'vendor-profile' %} aria-current="page"{% endif %}>品牌資料</a>{% endif %}
+            <a class="mc-nav__link {% if nav_active == 'provider' %}is-active{% endif %}" href="{% if navigation_user.has_role('Landlord') %}{{ url_for('web_auth.landlord_hub', user_id=navigation_user.id) }}{% else %}{{ url_for('web_auth.account', intent='landlord') }}{% endif %}"{% if nav_active == 'provider' %} aria-current="page"{% endif %}>{% if navigation_user.has_role('Landlord') %}場地管理{% else %}刊登攤位{% endif %}</a>
+            {% if navigation_user.is_admin %}<a class="mc-nav__link {% if nav_active == 'admin' %}is-active{% endif %}" href="{{ url_for('web_admin.certification_queue') }}"{% if nav_active == 'admin' %} aria-current="page"{% endif %}>審核管理</a>{% endif %}
+        </nav>
+
+        <a class="mc-nav__profile {% if nav_active == 'profile' %}is-active{% endif %}" href="{{ url_for('web_auth.profile_setup') }}"{% if nav_active == 'profile' %} aria-current="page"{% endif %}>
+            <span class="mc-nav__avatar" aria-hidden="true">{{ navigation_user.display_name[:1]|upper }}</span>
+            <span class="mc-nav__profile-copy">
+                <strong>{{ navigation_user.display_name }}</strong>
+                <small>個人資料</small>
+            </span>
+        </a>
+
+        <form class="mc-nav__logout" action="{{ url_for('web_auth.logout') }}" method="POST">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button type="submit">登出</button>
+        </form>
+
+        <details class="mc-nav__mobile">
+            <summary>選單</summary>
+            <div class="mc-nav__mobile-panel">
+                <a class="{% if nav_active == 'home' %}is-active{% endif %}" href="{{ url_for('web_auth.index') }}"{% if nav_active == 'home' %} aria-current="page"{% endif %}>首頁</a>
+                <a class="{% if nav_active == 'marketplace' %}is-active{% endif %}" href="{{ url_for('web_stalls.stall_list') }}"{% if nav_active == 'marketplace' %} aria-current="page"{% endif %}>找攤位</a>
+                <a class="{% if nav_active == 'tenant' %}is-active{% endif %}" href="{% if navigation_user.has_role('Tenant') %}{{ url_for('web_auth.tenant_hub', user_id=navigation_user.id) }}{% else %}{{ url_for('web_auth.account', intent='tenant') }}{% endif %}"{% if nav_active == 'tenant' %} aria-current="page"{% endif %}>{% if navigation_user.has_role('Tenant') %}攤商中心{% else %}成為攤商{% endif %}</a>
+                {% if navigation_user.has_role('Tenant') %}<a class="{% if nav_active == 'vendor-profile' %}is-active{% endif %}" href="{{ url_for('web_vendors.profile_setup') }}"{% if nav_active == 'vendor-profile' %} aria-current="page"{% endif %}>品牌資料</a>{% endif %}
+                <a class="{% if nav_active == 'provider' %}is-active{% endif %}" href="{% if navigation_user.has_role('Landlord') %}{{ url_for('web_auth.landlord_hub', user_id=navigation_user.id) }}{% else %}{{ url_for('web_auth.account', intent='landlord') }}{% endif %}"{% if nav_active == 'provider' %} aria-current="page"{% endif %}>{% if navigation_user.has_role('Landlord') %}場地管理{% else %}刊登攤位{% endif %}</a>
+                {% if navigation_user.is_admin %}<a class="{% if nav_active == 'admin' %}is-active{% endif %}" href="{{ url_for('web_admin.certification_queue') }}"{% if nav_active == 'admin' %} aria-current="page"{% endif %}>審核管理</a>{% endif %}
+                <a class="{% if nav_active == 'profile' %}is-active{% endif %}" href="{{ url_for('web_auth.profile_setup') }}"{% if nav_active == 'profile' %} aria-current="page"{% endif %}>{{ navigation_user.display_name }} · 個人資料</a>
+                <form action="{{ url_for('web_auth.logout') }}" method="POST">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit">登出</button>
+                </form>
+            </div>
+        </details>
+    </div>
+</header>
+{% endif %}

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPACIS | 認證案件 {{ certification.id }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
+    <style>
+        :root { --ink: #171917; --paper: #f2eddf; --surface: #fffdf7; --green: #315c45; --gold: #d8a62e; --red: #9d3f35; --muted: #66685f; }
+        * { box-sizing: border-box; }
+        body { margin: 0; color: var(--ink); background: var(--paper); font-family: 'Noto Sans TC', sans-serif; }
+        main { width: min(980px, calc(100% - 32px)); margin: 44px auto 90px; }
+        .back { display: inline-block; margin-bottom: 22px; color: var(--green); font-weight: 700; }
+        .heading { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 22px; }
+        .kicker { margin: 0 0 6px; color: var(--green); font-size: .75rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+        h1 { margin: 0; font: 900 clamp(2rem, 6vw, 3.6rem)/1 'Playfair Display', 'Noto Sans TC', serif; }
+        .status { padding: 7px 11px; border: 1px solid currentColor; font-size: .82rem; font-weight: 700; }
+        .status.pending { color: #8a6510; }
+        .status.approved { color: var(--green); }
+        .status.rejected { color: var(--red); }
+        .card { margin-bottom: 18px; padding: 26px; border: 2px solid var(--ink); background: var(--surface); }
+        .card h2 { margin: 0 0 18px; font-family: 'Playfair Display', 'Noto Sans TC', serif; }
+        dl { display: grid; grid-template-columns: 170px 1fr; gap: 11px 20px; margin: 0; }
+        dt { color: var(--muted); font-size: .86rem; font-weight: 700; }
+        dd { margin: 0; overflow-wrap: anywhere; }
+        .documents { display: grid; gap: 9px; padding: 0; list-style: none; }
+        .documents li { display: flex; justify-content: space-between; gap: 14px; align-items: center; padding: 12px; border: 1px solid #aaa598; background: #faf7ed; }
+        .documents a { padding: 8px 11px; background: var(--ink); color: #fff; font-weight: 700; text-decoration: none; white-space: nowrap; }
+        .warning { padding: 13px; border-left: 5px solid var(--gold); background: #fff5d8; color: #5f4a12; line-height: 1.65; }
+        textarea { width: 100%; min-height: 110px; padding: 12px; border: 1.5px solid var(--ink); border-radius: 0; font: inherit; resize: vertical; }
+        .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+        button { min-height: 46px; padding: 10px 18px; border: 2px solid var(--ink); cursor: pointer; font: inherit; font-weight: 700; }
+        .approve { background: var(--green); color: #fff; }
+        .reject { background: var(--red); color: #fff; }
+        .history { color: var(--muted); line-height: 1.7; }
+        @media (max-width: 650px) {
+            main { margin-top: 28px; }
+            .heading { display: block; }
+            .status { display: inline-block; margin-top: 14px; }
+            .card { padding: 20px 17px; }
+            dl { grid-template-columns: 1fr; gap: 4px; }
+            dd { margin-bottom: 10px; }
+            .documents li { display: block; }
+            .documents a { display: inline-block; margin-top: 10px; }
+        }
+    </style>
+</head>
+<body>
+    {% set nav_active = 'admin' %}
+    {% include '_member_nav.html' %}
+    <main>
+        <a class="back" href="{{ url_for('web_admin.certification_queue') }}">← 返回待審清單</a>
+        <div class="heading">
+            <div>
+                <p class="kicker">Certification case #{{ certification.id }}</p>
+                <h1>{{ certification.stall.loc_name }}</h1>
+            </div>
+            <span class="status {{ certification.status }}">{% if certification.status == 'approved' %}已通過{% elif certification.status == 'rejected' %}已退回{% else %}待審核{% endif %}</span>
+        </div>
+
+        <section class="card">
+            <h2>申請與場地資料</h2>
+            <dl>
+                <dt>申請人</dt><dd>{{ certification.applicant_legal_name }}</dd>
+                <dt>覆核電話</dt><dd>{{ certification.applicant_phone }}</dd>
+                <dt>平台帳號</dt><dd>{{ certification.stall.owner.username }}（User #{{ certification.stall.owner.id }}）</dd>
+                <dt>場地地址</dt><dd>{{ certification.stall.city }}{{ certification.stall.district }}{{ certification.stall.road }}{{ certification.stall.address_detail }}</dd>
+                <dt>與場地關係</dt><dd>{{ relationship_labels.get(certification.relationship_to_space, certification.relationship_to_space) }}</dd>
+                <dt>證明類型</dt><dd>{{ proof_type_labels.get(certification.proof_type, certification.proof_type) }}</dd>
+                <dt>文件編號／說明</dt><dd>{{ certification.proof_reference or '未填寫' }}</dd>
+                <dt>送審時間</dt><dd>{{ certification.submitted_at|date("Y-m-d H:i") }}</dd>
+            </dl>
+        </section>
+
+        <section class="card">
+            <h2>私密證明文件</h2>
+            <p class="warning">下載檔案可能含惡意內容。只使用受管理的裝置開啟，不要啟用文件中的巨集、腳本或外部連結；檔案不得轉傳。</p>
+            {% if certification.documents %}
+                <ul class="documents">
+                    {% for document in certification.documents %}
+                        <li>
+                            <span><strong>{{ document.original_filename }}</strong><br><small>{{ document.content_type }} · {{ (document.byte_size / 1024)|round(1) }} KB</small></span>
+                            <a href="{{ url_for('web_admin.certification_document', certification_id=certification.id, document_id=document.id) }}">安全下載</a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>本案件未上傳檔案。</p>
+            {% endif %}
+        </section>
+
+        <section class="card">
+            <h2>人工審核決定</h2>
+            {% if certification.reviewed_at %}
+                <p class="history">最近由 {{ certification.reviewer_reference or '未記錄' }} 於 {{ certification.reviewed_at|date("Y-m-d H:i") }} 完成審核。{% if certification.review_note %}<br>紀錄：{{ certification.review_note }}{% endif %}</p>
+            {% endif %}
+            <form action="{{ url_for('web_admin.review_certification', certification_id=certification.id) }}" method="POST">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <label for="review_note"><strong>審核紀錄／退件原因</strong></label>
+                <textarea id="review_note" name="review_note" maxlength="2000" placeholder="退件時必填，並清楚說明需要補充的資料。">{{ certification.review_note or '' }}</textarea>
+                <div class="actions">
+                    <button class="approve" type="submit" name="decision" value="approve">確認通過並公開攤位</button>
+                    <button class="reject" type="submit" name="decision" value="reject">退回補件／撤銷認證</button>
+                </div>
+            </form>
+        </section>
+    </main>
+</body>
+</html>

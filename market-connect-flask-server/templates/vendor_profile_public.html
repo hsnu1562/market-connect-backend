@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ profile.brand_name }} | SPACIS</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
+    <style>
+        :root { --paper: #f6f0df; --ink: #17221b; --green: #356447; }
+        body { margin: 0; color: var(--ink); background: linear-gradient(135deg, #f6f0df 0 70%, #d9e5c8 70%); min-height: 100vh; font-family: 'Noto Sans TC', sans-serif; }
+        main { width: min(920px, calc(100% - 28px)); margin: 55px auto; border: 3px solid var(--ink); background: #fffdf5; padding: clamp(24px, 6vw, 68px); }
+        .category { color: var(--green); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+        h1 { margin: 8px 0 24px; font: 400 clamp(3rem, 9vw, 7rem)/.9 'DM Serif Display', serif; }
+        img { width: min(320px, 100%); max-height: 320px; object-fit: cover; border: 2px solid var(--ink); margin-bottom: 28px; }
+        .description { max-width: 680px; white-space: pre-line; line-height: 1.9; }
+        .links { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+        .links a { border: 1px solid var(--ink); color: var(--ink); padding: 10px 14px; font-weight: 700; text-decoration: none; }
+    </style>
+</head>
+<body>
+{% set nav_active = 'vendor-profile' %}
+{% include '_member_nav.html' %}
+<main>
+    <p class="category">{{ category_label }} / 攤商品牌</p>
+    <h1>{{ profile.brand_name }}</h1>
+    {% if profile.has_profile_image %}<img src="{{ url_for('web_vendors.profile_image', profile_id=profile.id) }}" alt="{{ profile.brand_name }} 品牌圖片">{% endif %}
+    {% if profile.brand_description %}<p class="description">{{ profile.brand_description }}</p>{% endif %}
+    <div class="links">
+        {% if profile.instagram_url %}<a href="{{ profile.instagram_url }}" rel="noopener noreferrer">Instagram</a>{% endif %}
+        {% if profile.facebook_url %}<a href="{{ profile.facebook_url }}" rel="noopener noreferrer">Facebook</a>{% endif %}
+        {% if profile.website_url %}<a href="{{ profile.website_url }}" rel="noopener noreferrer">品牌網站</a>{% endif %}
+    </div>
+</main>
+</body>
+</html>

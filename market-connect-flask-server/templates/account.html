@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPACIS | 帳戶</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
+    <style>
+        :root {
+            --paper: #fcfaf2;
+            --ink: #161616;
+            --tenant: #4a7c59;
+            --landlord: #c96f8a;
+            --muted: #625f57;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            min-height: 100vh;
+            margin: 0;
+            color: var(--ink);
+            background:
+                linear-gradient(135deg, rgba(74, 124, 89, 0.1), transparent 42%),
+                linear-gradient(315deg, rgba(201, 111, 138, 0.1), transparent 48%),
+                var(--paper);
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+
+        .account-page { padding: 48px 24px; }
+
+        .shell { max-width: 980px; margin: 0 auto; }
+
+        .eyebrow {
+            margin: 0 0 12px;
+            color: var(--muted);
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        h1 {
+            max-width: 720px;
+            margin: 0;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: clamp(2.5rem, 7vw, 4.8rem);
+            font-style: italic;
+            line-height: 0.95;
+        }
+
+        .intro {
+            max-width: 620px;
+            margin: 22px 0 42px;
+            color: var(--muted);
+            font-size: 1.05rem;
+            line-height: 1.8;
+        }
+
+        .account-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 20px;
+        }
+
+        .account-card {
+            min-height: 330px;
+            padding: 32px;
+            border: 2px solid var(--ink);
+            background: rgba(255, 255, 255, 0.84);
+            box-shadow: 8px 8px 0 var(--ink);
+        }
+
+        .account-card.tenant { border-top: 10px solid var(--tenant); }
+        .account-card.landlord { border-top: 10px solid var(--landlord); }
+        .account-card.recommended { outline: 3px solid var(--ink); outline-offset: 5px; }
+
+        .role-label {
+            margin: 0;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .tenant .role-label { color: var(--tenant); }
+        .landlord .role-label { color: var(--landlord); }
+
+        h2 {
+            margin: 12px 0;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 2rem;
+        }
+
+        .card-copy {
+            min-height: 86px;
+            margin: 0 0 26px;
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        .actions { display: grid; gap: 10px; }
+        .actions form { margin: 0; }
+
+        .button {
+            display: block;
+            width: 100%;
+            padding: 13px 16px;
+            border: 2px solid var(--ink);
+            color: var(--ink);
+            font-weight: 700;
+            text-align: center;
+            text-decoration: none;
+            transition: transform 160ms ease, box-shadow 160ms ease;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+
+        .button:hover { transform: translate(-3px, -3px); box-shadow: 4px 4px 0 var(--ink); }
+        .tenant .button.primary { background: var(--tenant); color: #fff; border-color: var(--tenant); }
+        .landlord .button.primary { background: var(--landlord); color: #fff; border-color: var(--landlord); }
+        .button.google { background: #fff; }
+        .button.google span { margin-right: 8px; font-family: sans-serif; color: #4285f4; }
+
+        .error-msg {
+            margin: 0 0 24px;
+            padding: 14px 16px;
+            border: 2px solid #a62d2d;
+            background: #fff0f0;
+            color: #842020;
+            font-weight: 700;
+        }
+
+        .signin-note {
+            margin: 26px 0 0;
+            padding: 18px 20px;
+            border-left: 4px solid var(--ink);
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        .profile-link {
+            display: inline-block;
+            margin-top: 24px;
+            color: var(--ink);
+            font-weight: 700;
+            text-underline-offset: 4px;
+        }
+
+        .return-link {
+            display: inline-block;
+            margin-top: 42px;
+            color: var(--ink);
+            font-weight: 700;
+            text-underline-offset: 4px;
+        }
+
+        @media (max-width: 680px) {
+            .account-page { padding: 32px 20px; }
+            .account-grid { grid-template-columns: 1fr; }
+            .account-card { min-height: 0; box-shadow: 6px 6px 0 var(--ink); }
+            .card-copy { min-height: 0; }
+        }
+    </style>
+</head>
+<body>
+    {% if intent == 'tenant' %}
+        {% set nav_active = 'tenant' %}
+    {% elif intent == 'landlord' %}
+        {% set nav_active = 'provider' %}
+    {% else %}
+        {% set nav_active = 'profile' %}
+    {% endif %}
+    {% include '_member_nav.html' %}
+    <div class="account-page">
+    <main class="shell">
+        <p class="eyebrow">SPACIS 帳戶</p>
+        <h1>選擇使用方式</h1>
+        <p class="intro">同一個帳戶可找攤位，也可刊登攤位。</p>
+
+        {% if oauth_error %}
+            <div class="error-msg" role="alert">Google 登入失敗，請重新嘗試。</div>
+        {% endif %}
+
+        <section class="account-grid" aria-label="帳戶類型">
+            <article class="account-card tenant {% if intent == 'tenant' %}recommended{% endif %}">
+                <p class="role-label">攤商</p>
+                <h2>我要租攤位</h2>
+                <p class="card-copy">找攤位、預約時段、查看預約紀錄。</p>
+                <div class="actions">
+                    {% if current_user %}
+                        {% if current_user.has_role('Tenant') %}
+                            <a class="button primary" href="{{ url_for('web_auth.tenant_hub', user_id=current_user.id) }}">前往攤商中心</a>
+                        {% else %}
+                            <form method="POST" action="{{ url_for('web_auth.activate_role', role='Tenant') }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ next_url }}">
+                                <button class="button primary" type="submit">成為攤商</button>
+                            </form>
+                        {% endif %}
+                    {% else %}
+                        <a class="button primary google" href="{{ url_for('web_auth.google_login', role='Tenant', next=next_url) }}"><span>G</span>使用 Google 登入</a>
+                        {% if config.LOCAL_AUTH_ENABLED %}
+                            <a class="button" href="{{ url_for('web_auth.login_view', role='Tenant', next=next_url) }}">測試帳號登入</a>
+                            <a class="button" href="{{ url_for('web_auth.register', role='Tenant', next=next_url) }}">建立測試帳號</a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </article>
+
+            <article class="account-card landlord {% if intent == 'landlord' %}recommended{% endif %}">
+                <p class="role-label">場地方</p>
+                <h2>我要出租攤位</h2>
+                <p class="card-copy">刊登攤位、設定出租時段、管理預約。</p>
+                <div class="actions">
+                    {% if current_user %}
+                        {% if current_user.has_role('Landlord') %}
+                            <a class="button primary" href="{{ url_for('web_auth.landlord_hub', user_id=current_user.id) }}">前往場地管理</a>
+                        {% else %}
+                            <form method="POST" action="{{ url_for('web_auth.activate_role', role='Landlord') }}">
+                                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="next" value="{{ next_url }}">
+                                <button class="button primary" type="submit">成為場地方</button>
+                            </form>
+                        {% endif %}
+                    {% else %}
+                        <a class="button primary google" href="{{ url_for('web_auth.google_login', role='Landlord', next=next_url) }}"><span>G</span>使用 Google 登入</a>
+                        {% if config.LOCAL_AUTH_ENABLED %}
+                            <a class="button" href="{{ url_for('web_auth.login_view', role='Landlord', next=next_url) }}">測試帳號登入</a>
+                            <a class="button" href="{{ url_for('web_auth.register', role='Landlord', next=next_url) }}">建立測試帳號</a>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </article>
+        </section>
+
+        {% if current_user %}
+            <a class="profile-link" href="{{ url_for('web_auth.profile_setup') }}">編輯個人資料</a>
+        {% else %}
+        {% endif %}
+
+        <a class="return-link" href="{{ url_for('web_auth.index') }}">回到首頁</a>
+    </main>
+    </div>
+</body>
+</html>

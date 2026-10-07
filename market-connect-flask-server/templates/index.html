@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="查看近期可租的市集攤位、時段、租金與設備。">
+    <title>SPACIS | 找攤位與刊登攤位</title>
+    <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='auth-dialog.css') }}">
+    <style>
+        :root {
+            --paper: #f3efe3;
+            --paper-light: #fffdf6;
+            --ink: #171a17;
+            --muted: #67685f;
+            --line: #252820;
+            --green: #315c45;
+            --green-light: #dce7d7;
+            --saffron: #dea72c;
+            --coral: #bd6955;
+            --shadow: 8px 8px 0 rgba(23, 26, 23, 0.14);
+        }
+
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            margin: 0;
+            color: var(--ink);
+            background-color: var(--paper);
+            background-image:
+                linear-gradient(rgba(23, 26, 23, 0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(23, 26, 23, 0.025) 1px, transparent 1px);
+            background-size: 32px 32px;
+            font-family: 'Noto Sans TC', sans-serif;
+            line-height: 1.6;
+        }
+
+        a { color: inherit; }
+
+        .site-header {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            border-bottom: 2px solid var(--line);
+            background: rgba(243, 239, 227, 0.96);
+            backdrop-filter: blur(10px);
+        }
+
+        .topbar {
+            width: min(1320px, calc(100% - 48px));
+            min-height: 76px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 32px;
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            text-decoration: none;
+            font-family: 'Playfair Display', serif;
+            font-size: 1.45rem;
+            font-weight: 900;
+            letter-spacing: -0.04em;
+        }
+
+        .brand-mark {
+            width: 38px;
+            height: 38px;
+            display: block;
+        }
+
+        .brand-mark img {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .nav-link {
+            padding: 9px 14px;
+            color: var(--ink);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .nav-link:hover { color: var(--green); }
+
+        .nav-link.outline {
+            border: 1.5px solid var(--line);
+            background: var(--paper-light);
+        }
+
+        .nav-link.outline:hover {
+            color: var(--paper-light);
+            background: var(--ink);
+        }
+
+        .logout-form { margin: 0; }
+
+        .nav-button {
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .home-mobile-menu { display: none; position: relative; }
+        .home-mobile-menu summary {
+            padding: 9px 12px;
+            border: 1.5px solid var(--line);
+            background: var(--paper-light);
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 700;
+            list-style: none;
+        }
+        .home-mobile-menu summary::-webkit-details-marker { display: none; }
+        .home-mobile-menu summary::after { content: " +"; color: var(--green); }
+        .home-mobile-menu[open] summary::after { content: " -"; }
+        .home-mobile-menu summary:focus-visible,
+        .home-mobile-panel a:focus-visible,
+        .home-mobile-panel button:focus-visible {
+            outline: 3px solid var(--saffron);
+            outline-offset: 2px;
+        }
+        .home-mobile-panel {
+            position: absolute;
+            top: calc(100% + 10px);
+            right: 0;
+            width: min(310px, calc(100vw - 28px));
+            padding: 10px;
+            border: 2px solid var(--line);
+            border-top: 5px solid var(--green);
+            background: var(--paper-light);
+            box-shadow: var(--shadow);
+        }
+        .home-mobile-panel a,
+        .home-mobile-panel button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            border: 0;
+            border-bottom: 1px solid #d6d0c0;
+            background: transparent;
+            color: var(--ink);
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+            text-align: left;
+            text-decoration: none;
+        }
+        .home-mobile-panel form { margin: 0; }
+
+        main {
+            width: min(1320px, calc(100% - 48px));
+            margin: 0 auto;
+        }
+
+        .hero {
+            min-height: 620px;
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.65fr);
+            align-items: stretch;
+            border-right: 2px solid var(--line);
+            border-left: 2px solid var(--line);
+        }
+
+        .hero-copy {
+            padding: clamp(72px, 8vw, 126px) clamp(36px, 7vw, 96px) 72px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            border-right: 2px solid var(--line);
+            animation: pageRise 0.7s ease-out both;
+        }
+
+        .eyebrow {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0 0 24px;
+            color: var(--green);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+
+        .eyebrow::before {
+            content: '';
+            width: 44px;
+            height: 3px;
+            background: var(--saffron);
+        }
+
+        .hero h1 {
+            max-width: 850px;
+            margin: 0;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: clamp(3.6rem, 7.4vw, 7rem);
+            font-weight: 900;
+            line-height: 0.96;
+            letter-spacing: -0.065em;
+        }
+
+        .hero h1 em {
+            position: relative;
+            color: var(--green);
+            font-weight: 900;
+            z-index: 1;
+        }
+
+        .hero h1 em::after {
+            content: '';
+            position: absolute;
+            right: -2%;
+            bottom: 5%;
+            left: -2%;
+            height: 18%;
+            background: var(--saffron);
+            z-index: -1;
+            transform: rotate(-1deg);
+        }
+
+        .hero-lead {
+            max-width: 660px;
+            margin: 32px 0 0;
+            color: var(--muted);
+            font-size: 1.08rem;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 38px;
+        }
+
+        .button {
+            min-height: 50px;
+            padding: 12px 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid var(--line);
+            color: var(--paper-light);
+            background: var(--ink);
+            text-decoration: none;
+            font-weight: 700;
+            transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+        }
+
+        .button:hover {
+            transform: translate(-3px, -3px);
+            box-shadow: 4px 4px 0 var(--saffron);
+        }
+
+        .button.secondary {
+            color: var(--ink);
+            background: transparent;
+        }
+
+        .market-panel {
+            position: relative;
+            padding: 48px 38px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            overflow: hidden;
+            color: var(--paper-light);
+            background: var(--green);
+            animation: pageRise 0.7s 0.12s ease-out both;
+        }
+
+        .market-panel::after {
+            content: 'SP';
+            position: absolute;
+            right: -18px;
+            bottom: -68px;
+            color: rgba(255, 255, 255, 0.07);
+            font-family: 'Playfair Display', serif;
+            font-size: 13rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .panel-heading,
+        .panel-note,
+        .metric-grid { position: relative; z-index: 1; }
+
+        .panel-label {
+            margin: 0 0 18px;
+            color: #e5c668;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.16em;
+            text-transform: uppercase;
+        }
+
+        .panel-heading h2 {
+            margin: 0;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 2.35rem;
+            line-height: 1.08;
+        }
+
+        .metric-grid {
+            margin: 46px 0;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            border-top: 1px solid rgba(255, 255, 255, 0.4);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .metric {
+            padding: 22px 10px 22px 0;
+            border-right: 1px solid rgba(255, 255, 255, 0.35);
+        }
+
+        .metric:last-child { border-right: 0; padding-left: 16px; }
+        .metric:nth-child(2) { padding-left: 16px; }
+
+        .metric strong {
+            display: block;
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            line-height: 1;
+        }
+
+        .metric span {
+            display: block;
+            margin-top: 8px;
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 0.76rem;
+        }
+
+        .panel-note {
+            max-width: 290px;
+            margin: 0;
+            color: rgba(255, 255, 255, 0.78);
+            font-size: 0.88rem;
+        }
+
+        .market-strip {
+            margin: 0 -2px;
+            padding: 13px 22px;
+            display: flex;
+            justify-content: space-between;
+            gap: 22px;
+            border: 2px solid var(--line);
+            background: var(--saffron);
+            font-size: 0.78rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            overflow: hidden;
+        }
+
+        .listings-section { padding: 100px 0 72px; }
+
+        .section-heading {
+            margin-bottom: 42px;
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 28px;
+        }
+
+        .section-kicker {
+            margin: 0 0 8px;
+            color: var(--coral);
+            font-size: 0.76rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .section-heading h2 {
+            margin: 0;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: clamp(2.5rem, 5vw, 4.6rem);
+            line-height: 1;
+            letter-spacing: -0.04em;
+        }
+
+        .section-description {
+            max-width: 420px;
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .stall-grid {
+            display: grid;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+            gap: 24px;
+        }
+
+        .stall-card {
+            grid-column: span 4;
+            min-height: 430px;
+            padding: 26px;
+            display: flex;
+            flex-direction: column;
+            border: 2px solid var(--line);
+            background: var(--paper-light);
+            box-shadow: 5px 5px 0 rgba(23, 26, 23, 0.1);
+            animation: cardRise 0.58s ease-out both;
+        }
+
+        .stall-card.lead-card {
+            grid-column: span 8;
+            background:
+                linear-gradient(90deg, var(--paper-light) 0 72%, var(--green-light) 72% 100%);
+        }
+
+        .stall-cover {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            margin: 20px 0 0;
+            border: 1px solid var(--line);
+            object-fit: cover;
+            background:
+                linear-gradient(135deg, var(--green-light), #f4d6cc),
+                var(--paper);
+        }
+        .stall-cover--empty {
+            display: grid;
+            place-items: center;
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+        }
+
+        .card-topline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+        }
+
+        .card-number {
+            color: var(--coral);
+            font-family: 'Playfair Display', serif;
+            font-size: 1rem;
+        }
+
+        .city-tag {
+            padding: 4px 9px;
+            border: 1px solid var(--line);
+            background: var(--saffron);
+        }
+
+        .stall-name {
+            margin: 24px 0 8px;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: clamp(1.7rem, 3vw, 2.6rem);
+            line-height: 1.05;
+            letter-spacing: -0.035em;
+        }
+
+        .stall-address {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.88rem;
+        }
+
+        .facility-list {
+            margin: 22px 0 0;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+            list-style: none;
+        }
+
+        .facility-list li {
+            padding: 5px 9px;
+            border: 1px solid #aaa99f;
+            color: #55574f;
+            background: rgba(255, 255, 255, 0.55);
+            font-size: 0.74rem;
+        }
+        .facility-list li.verified {
+            border-color: var(--green);
+            color: var(--green);
+            background: var(--green-light);
+            font-weight: 700;
+        }
+
+        .availability {
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid #aaa99f;
+        }
+
+        .availability-label {
+            margin: 0 0 12px;
+            color: var(--muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+        }
+
+        .slot-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .slot {
+            padding: 7px 10px;
+            color: var(--paper-light);
+            background: var(--green);
+            font-size: 0.76rem;
+            font-weight: 700;
+        }
+
+        .more-slots {
+            padding: 7px 2px;
+            color: var(--muted);
+            font-size: 0.76rem;
+        }
+
+        .card-footer {
+            margin-top: auto;
+            padding-top: 26px;
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 18px;
+        }
+
+        .price-label {
+            display: block;
+            color: var(--muted);
+            font-size: 0.7rem;
+        }
+
+        .price {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.9rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+
+        .price small {
+            font-family: 'Noto Sans TC', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 500;
+        }
+
+        .card-action {
+            padding: 10px 14px;
+            border-bottom: 2px solid var(--ink);
+            text-decoration: none;
+            font-size: 0.84rem;
+            font-weight: 700;
+        }
+
+        .card-action:hover {
+            color: var(--green);
+            border-color: var(--saffron);
+        }
+
+        .empty-state {
+            padding: 70px 38px;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 30px;
+            border: 2px solid var(--line);
+            background: var(--green-light);
+        }
+
+        .empty-state h3 {
+            margin: 0 0 8px;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 2rem;
+        }
+
+        .empty-state p { margin: 0; color: var(--muted); }
+
+        .market-purpose {
+            margin-bottom: 96px;
+            display: grid;
+            grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+            border: 2px solid var(--line);
+            background: var(--paper-light);
+        }
+
+        .purpose-copy {
+            padding: 38px;
+            border-right: 2px solid var(--line);
+            background: var(--green-light);
+        }
+
+        .purpose-copy h2 {
+            margin: 0;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: clamp(2rem, 3vw, 3.1rem);
+            line-height: 1.08;
+            letter-spacing: -0.04em;
+        }
+
+        .purpose-copy p:last-child {
+            margin: 22px 0 0;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .behavior-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .behavior-card {
+            min-height: 230px;
+            padding: 34px;
+        }
+
+        .behavior-card:first-child { border-right: 2px solid var(--line); }
+
+        .behavior-label {
+            margin: 0;
+            color: var(--coral);
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+        }
+
+        .behavior-card h3 {
+            margin: 18px 0 10px;
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 1.45rem;
+            line-height: 1.15;
+        }
+
+        .behavior-card p:last-child {
+            margin: 0;
+            color: var(--muted);
+            font-size: 0.84rem;
+        }
+
+        .site-footer {
+            padding: 34px 0 42px;
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            border-top: 2px solid var(--line);
+            color: var(--muted);
+            font-size: 0.76rem;
+        }
+
+        @keyframes pageRise {
+            from { transform: translateY(18px); }
+            to { transform: translateY(0); }
+        }
+
+        @keyframes cardRise {
+            from { transform: translateY(24px); }
+            to { transform: translateY(0); }
+        }
+
+        @media (max-width: 980px) {
+            .hero { grid-template-columns: 1fr; }
+            .hero-copy { border-right: 0; border-bottom: 2px solid var(--line); }
+            .market-panel { min-height: 420px; }
+            .stall-card,
+            .stall-card.lead-card { grid-column: span 6; background: var(--paper-light); }
+            .section-heading { align-items: start; flex-direction: column; }
+            .market-purpose { grid-template-columns: 1fr; }
+            .purpose-copy { border-right: 0; border-bottom: 2px solid var(--line); }
+        }
+
+        @media (max-width: 680px) {
+            .topbar,
+            main {
+                width: calc(100% - 28px);
+                max-width: 1320px;
+            }
+            .topbar { min-height: 68px; gap: 12px; }
+            .brand { font-size: 1.2rem; }
+            .brand-mark { width: 32px; height: 32px; }
+            .nav-links { display: none; }
+            .home-mobile-menu { display: block; }
+            .hero { min-height: auto; }
+            .hero-copy { padding: 44px 24px 36px; }
+            .eyebrow { margin-bottom: 18px; font-size: 0.68rem; }
+            .hero h1 { font-size: clamp(2.65rem, 13vw, 3.35rem); }
+            .hero-lead { margin-top: 22px; font-size: 0.92rem; }
+            .hero-actions { gap: 8px; margin-top: 26px; }
+            .button { min-height: 46px; padding: 10px 14px; font-size: 0.84rem; }
+            .market-panel { min-height: auto; padding: 22px 24px; }
+            .panel-heading,
+            .panel-note { display: none; }
+            .metric-grid { margin: 0; }
+            .metric { padding-top: 12px; padding-bottom: 12px; }
+            .metric strong { font-size: 1.55rem; }
+            .metric span { margin-top: 5px; font-size: 0.68rem; }
+            .market-strip { padding: 10px 14px; white-space: nowrap; }
+            .market-strip span:last-child { display: none; }
+            .listings-section { padding-top: 44px; }
+            .section-heading { margin-bottom: 26px; gap: 18px; }
+            .section-heading h2 { font-size: 2.5rem; }
+            .stall-card,
+            .stall-card.lead-card { grid-column: span 12; }
+            .empty-state { grid-template-columns: 1fr; padding: 42px 24px; }
+            .purpose-copy { padding: 32px 24px; }
+            .behavior-grid { grid-template-columns: 1fr; }
+            .behavior-card { min-height: auto; padding: 30px 24px; }
+            .behavior-card:first-child { border-right: 0; border-bottom: 2px solid var(--line); }
+            .site-footer { flex-direction: column; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                scroll-behavior: auto !important;
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <div class="topbar">
+            <a href="/" class="brand" aria-label="SPACIS 首頁">
+                <span class="brand-mark" aria-hidden="true">
+                    <img src="{{ url_for('static', filename='favicon.svg') }}" alt="">
+                </span>
+                <span>SPACIS</span>
+            </a>
+            <nav class="nav-links" aria-label="主要導覽">
+                <a href="#availability" class="nav-link">找攤位</a>
+                <a href="{{ provider_url }}" class="nav-link"{% if not current_user %} data-auth-role="Landlord" data-auth-next=""{% endif %}>刊登攤位</a>
+                {% if current_user %}
+                    <a href="{{ account_url }}" class="nav-link outline">{{ current_user.display_name }} · 個人資料</a>
+                    <form action="{{ url_for('web_auth.logout') }}" method="POST" class="logout-form">
+                        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="nav-link outline nav-button">登出</button>
+                    </form>
+                {% else %}
+                    <a href="{{ account_url }}" class="nav-link outline">登入</a>
+                {% endif %}
+            </nav>
+            <details class="home-mobile-menu">
+                <summary>選單</summary>
+                <nav class="home-mobile-panel" aria-label="行動版主要導覽">
+                    <a href="/">首頁</a>
+                    <a href="#availability">找攤位</a>
+                    <a href="{{ provider_url }}"{% if not current_user %} data-auth-role="Landlord" data-auth-next=""{% endif %}>刊登攤位</a>
+                    {% if current_user %}
+                        <a href="{{ account_url }}">{{ current_user.display_name }} · 個人資料</a>
+                        <form action="{{ url_for('web_auth.logout') }}" method="POST">
+                            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit">登出</button>
+                        </form>
+                    {% else %}
+                        <a href="{{ account_url }}">登入</a>
+                    {% endif %}
+                </nav>
+            </details>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero" aria-labelledby="hero-title">
+            <div class="hero-copy">
+                <p class="eyebrow">攤位媒合與空間預約</p>
+                <h1 id="hero-title">找適合的<br><em>出攤位置</em>。</h1>
+                <p class="hero-lead">
+                    比較近期空檔、租金與設備，找到合適的出攤位置。
+                </p>
+                <div class="hero-actions">
+                    <a href="#availability" class="button">查看可租攤位</a>
+                    <a href="{{ provider_url }}" class="button secondary"{% if not current_user %} data-auth-role="Landlord" data-auth-next=""{% endif %}>刊登攤位</a>
+                </div>
+            </div>
+
+            <aside class="market-panel" aria-label="目前市場供應概況">
+                <div class="panel-heading">
+                    <p class="panel-label">目前供應</p>
+                    <h2>近期<br>可租攤位</h2>
+                </div>
+                <div class="metric-grid">
+                    <div class="metric">
+                        <strong>{{ stats.stalls }}</strong>
+                        <span>可租攤位</span>
+                    </div>
+                    <div class="metric">
+                        <strong>{{ stats.slots }}</strong>
+                        <span>開放時段</span>
+                    </div>
+                    <div class="metric">
+                        <strong>{{ stats.cities }}</strong>
+                        <span>可租城市</span>
+                    </div>
+                </div>
+                <p class="panel-note">數字以目前可預約的時段計算。</p>
+            </aside>
+        </section>
+
+        <div class="market-strip" aria-hidden="true">
+            <span>近期可租攤位</span>
+            <span>小時或整日方案</span>
+            <span>可預約時段</span>
+            <span>預約與評價</span>
+        </div>
+
+        <section class="listings-section" id="availability" aria-labelledby="availability-title">
+            <div class="section-heading">
+                <div>
+                    <p class="section-kicker">近期可租</p>
+                    <h2 id="availability-title">近期可租攤位</h2>
+                </div>
+                <p class="section-description">依近期可租日期排序，價格由場地方設定。</p>
+            </div>
+
+            {% if listings %}
+                <div class="stall-grid">
+                    {% for listing in listings %}
+                        <article class="stall-card{% if loop.first %} lead-card{% endif %}" style="animation-delay: {{ loop.index0 * 70 }}ms;">
+                            <div class="card-topline">
+                                <span class="card-number">攤位 {{ "%02d"|format(loop.index) }}</span>
+                                <span class="city-tag">{{ listing.stall.city }}</span>
+                            </div>
+
+                            {% if listing.stall.photos %}
+                                <img class="stall-cover" src="{{ url_for('web_stalls.stall_photo', photo_id=listing.stall.photos[0].id) }}" alt="{{ listing.stall.loc_name }} 攤位照片" loading="lazy" decoding="async">
+                            {% else %}
+                                <div class="stall-cover stall-cover--empty" aria-label="此攤位尚無照片">尚無照片</div>
+                            {% endif %}
+
+                            <h3 class="stall-name">{{ listing.stall.loc_name }}</h3>
+                            <p class="stall-address">{{ listing.stall.city }} {{ listing.stall.district }} · {{ listing.stall.road }} {{ listing.stall.address_detail }}</p>
+
+                            <ul class="facility-list" aria-label="攤位設備">
+                                <li class="verified">✓ 出租資格已審核</li>
+                                {% if listing.facilities %}
+                                    {% for facility in listing.facilities[:3] %}
+                                        <li>{{ facility }}</li>
+                                    {% endfor %}
+                                {% else %}
+                                    <li>基本攤位空間</li>
+                                {% endif %}
+                            </ul>
+
+                            <div class="availability">
+                                <p class="availability-label">最近可租 · {{ listing.next_date|date("Y/m/d") }} 起，共 {{ listing.available_days }} 個開放日</p>
+                                <div class="slot-list">
+                                    {% for slot in listing.preview_slots %}
+                                        <span class="slot">{{ slot.date|date("m/d") }} · {{ slot.time }}:00–{{ slot.time + slot.duration_hours }}:00</span>
+                                    {% endfor %}
+                                    {% if listing.slots|length > 3 %}
+                                        <span class="more-slots">另有 {{ listing.slots|length - 3 }} 個時段</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="card-footer">
+                                <div>
+                                    <span class="price-label">{{ listing.price_label }}</span>
+                                    <span class="price">NT$ {{ listing.min_price }} <small>/ {{ listing.price_unit }}</small></span>
+                                </div>
+                                <a class="card-action" href="{{ listing.action_url }}"{% if not current_user %} data-auth-role="Tenant" data-auth-next="{{ url_for('web_stalls.stall_list') }}"{% endif %}>{{ listing.action_label }} →</a>
+                            </div>
+                        </article>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <div>
+                        <h3>目前沒有可預約時段</h3>
+                    </div>
+                    <a href="{{ provider_url }}" class="button"{% if not current_user %} data-auth-role="Landlord" data-auth-next=""{% endif %}>刊登第一個攤位</a>
+                </div>
+            {% endif %}
+        </section>
+
+        <section class="market-purpose" aria-labelledby="purpose-title">
+            <div class="purpose-copy">
+                <p class="section-kicker">合作資訊</p>
+                <h2 id="purpose-title">清楚比較，安心預約。</h2>
+                <p>查看地點、設備、費用、時段與合作評價。</p>
+            </div>
+            <div class="behavior-grid" aria-label="可靠合作行為">
+                <article class="behavior-card">
+                    <p class="behavior-label">攤商</p>
+                    <h3>依約使用場地</h3>
+                    <p>遵守現場規則；行程變更時，請及早通知場地方。</p>
+                </article>
+                <article class="behavior-card">
+                    <p class="behavior-label">場地方</p>
+                    <h3>維持資訊正確</h3>
+                    <p>更新設備、費用、時段與使用限制。</p>
+                </article>
+            </div>
+        </section>
+
+        <footer class="site-footer">
+            <span>SPACIS / 攤位媒合與空間預約系統</span>
+            <span>找攤位・刊登攤位</span>
+        </footer>
+    </main>
+
+    {% if not current_user %}{% include '_auth_dialog.html' %}{% endif %}
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPACIS | 攤商中心</title>
+    <!-- 引入 Miranda 網站靈魂：古典優雅的襯線字體 Playfair Display -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
+    <style>
+        :root {
+            --bg-paper: #fcfaf2; /* 高雅的復古再生紙米白色 */
+            --text-charcoal: #161616; /* 高級深炭黑 */
+            --border-line: #161616;
+            --tenant-accent: #4a617c; /* 攤商端：專業沈穩的古董灰藍 */
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-paper); 
+            min-height: 100vh; margin: 0; 
+            display: flex; flex-direction: column;
+            color: var(--text-charcoal);
+        }
+
+        /* 💡 頂部老雜誌風格的黑底白字導航列 */
+        .navbar {
+            background: var(--text-charcoal); padding: 15px 50px; display: flex;
+            justify-content: space-between; align-items: center; color: var(--bg-paper);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 1000;
+        }
+        .navbar .logo { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 900; font-style: italic; color: var(--bg-paper); text-decoration: none; }
+        .user-info span b { color: #a3b1c2; margin: 0 5px; }
+
+        .container { 
+            max-width: 1000px; margin: 60px auto; padding: 0 20px; 
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        /* 💡 報紙頭版引言風 Header */
+        .hub-header {
+            text-align: center;
+            margin-bottom: 4rem;
+            animation: journalFadeIn 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .hub-title { 
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 4rem; 
+            font-weight: 900;
+            font-style: italic; 
+            margin: 0 0 10px 0;
+            letter-spacing: -1px;
+        }
+
+        .hub-subtitle {
+            font-size: 1.1rem;
+            color: #555;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .hub-subtitle span {
+            color: var(--tenant-accent);
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+        }
+
+        /* 💡 核心優化：線條裁切的雙軌功能大網格 */
+        .grid-portal {
+            display: flex; 
+            width: 100%; 
+            gap: 40px; 
+            box-sizing: border-box;
+            animation: journalFadeIn 1.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .portal-card {
+            flex: 1;
+            background: #ffffff;
+            border: 2px solid var(--border-line);
+            border-radius: 0px; 
+            padding: 50px 40px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .portal-card:hover { 
+            background-color: rgba(74, 97, 124, 0.05); 
+            transform: translateY(-5px);
+        }
+
+        .card-icon { 
+            font-size: 4rem; 
+            margin-bottom: 15px; 
+            filter: grayscale(0.2);
+            transition: transform 0.3s ease;
+        }
+        .portal-card:hover .card-icon {
+            transform: scale(1.1) rotate(-4deg);
+        }
+
+        .portal-card h3 {
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-charcoal);
+            margin: 0 0 15px 0;
+        }
+
+        .card-desc {
+            font-size: 0.95rem;
+            color: #555;
+            line-height: 1.6;
+            margin: 0 0 40px 0;
+            min-height: 50px;
+        }
+
+        .btn-portal {
+            display: block;
+            width: 100%;
+            padding: 15px; 
+            text-align: center; 
+            text-decoration: none;
+            font-weight: 700; 
+            font-size: 1rem;
+            letter-spacing: 1px;
+            box-sizing: border-box;
+            border: 2px solid var(--border-line);
+            border-radius: 0px; 
+            transition: all 0.3s ease;
+        }
+
+        .btn-main { background: var(--text-charcoal); color: var(--bg-paper); }
+        .btn-main:hover { background: var(--tenant-accent); color: white; border-color: var(--tenant-accent); }
+
+        .btn-sub { background: transparent; color: var(--text-charcoal); }
+        .btn-sub:hover { background: var(--text-charcoal); color: var(--bg-paper); }
+
+        .logout-form { margin: 34px 0 0; text-align: center; }
+        .logout-button { background: transparent; border: 0; border-bottom: 1px solid var(--text-charcoal); color: var(--text-charcoal); cursor: pointer; font: inherit; font-size: 0.9rem; font-weight: 700; letter-spacing: 1px; padding: 0 0 2px; }
+        .logout-button:hover { border-color: var(--tenant-accent); color: var(--tenant-accent); }
+
+        @keyframes journalFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 720px) {
+            .container { width: 100%; margin: 36px auto; padding: 0 16px; box-sizing: border-box; }
+            .hub-header { margin-bottom: 2rem; }
+            .hub-title { font-size: clamp(2.6rem, 15vw, 4rem); }
+            .grid-portal { flex-direction: column; gap: 20px; }
+            .portal-card { padding: 34px 24px; }
+            .card-desc { min-height: 0; margin-bottom: 28px; }
+        }
+    </style>
+</head>
+<body>
+    {% set nav_active = 'tenant' %}
+    {% include '_member_nav.html' %}
+
+    <div class="container">
+        
+        <div class="hub-header">
+            <h1 class="hub-title">攤商中心</h1>
+            <div class="hub-subtitle"><span>{% if user.vendor_profile %}{{ user.vendor_profile.brand_name }}{% else %}{{ user.display_name }}{% endif %}</span></div>
+        </div>
+        
+        <div class="grid-portal">
+            
+            <div class="portal-card">
+                <div style="width: 100%;">
+                    <div class="card-icon">🔍</div>
+                    <h3>尋找攤位</h3>
+                    <p class="card-desc">查看可租時段並預約攤位。</p>
+                </div>
+                <a href="/stalls/" class="btn-portal btn-main">瀏覽攤位</a>
+            </div>
+
+            <div class="portal-card">
+                <div style="width: 100%;">
+                    <div class="card-icon">📅</div>
+                    <h3>我的預約</h3>
+                    <p class="card-desc">查看預約、入場 QR 碼與評價。</p>
+                </div>
+                <a href="/my_bookings/{{ user.id }}/" class="btn-portal btn-sub">查看預約</a>
+            </div>
+
+            <div class="portal-card">
+                <div style="width: 100%;">
+                    <div class="card-icon">🏷️</div>
+                    <h3>攤商品牌資料</h3>
+                    <p class="card-desc">管理公開品牌資料與預約聯絡方式。預約前需完成。</p>
+                </div>
+                <a href="{{ url_for('web_vendors.profile_setup') }}" class="btn-portal btn-sub">{% if user.vendor_profile %}編輯品牌資料{% else %}建立品牌資料{% endif %}</a>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>

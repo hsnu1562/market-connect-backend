@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">SPACIS market stall</title>
+  <rect x="2" y="2" width="60" height="60" rx="10" fill="#dea72c" stroke="#171a17" stroke-width="4"/>
+  <path d="M14 27 18 15h28l4 12Z" fill="#315c45" stroke="#171a17" stroke-linejoin="round" stroke-width="4"/>
+  <path d="M23 15 21 27M32 15v12M41 15l2 12" fill="none" stroke="#fffdf6" stroke-width="3"/>
+  <path d="M17 27v5c0 3 2 5 5 5s5-2 5-5c0 3 2 5 5 5s5-2 5-5c0 3 2 5 5 5s5-2 5-5c0 3 2 5 5 5V27Z" fill="#fffdf6" stroke="#171a17" stroke-linejoin="round" stroke-width="4"/>
+  <path d="M20 38v12h24V38M16 51h32" fill="none" stroke="#171a17" stroke-linecap="round" stroke-width="4"/>
+</svg>

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPACIS | 場地管理</title>
+    <!-- 引入 Miranda 網站靈魂：古典優雅的襯線字體 Playfair Display -->
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
+    <style>
+        :root {
+            --bg-paper: #fcfaf2; /* 高雅的復古再生紙米白色 */
+            --text-charcoal: #161616; /* 高級深炭黑 */
+            --border-line: #161616;
+            --landlord-accent: #c96f8a; /* 低飽和莫蘭迪粉 */
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-paper); 
+            min-height: 100vh; margin: 0; 
+            display: flex; flex-direction: column;
+            color: var(--text-charcoal);
+        }
+
+        /* 💡 頂部老雜誌風格的黑底白字導航列 */
+        .navbar {
+            background: var(--text-charcoal); padding: 15px 50px; display: flex;
+            justify-content: space-between; align-items: center; color: var(--bg-paper);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: sticky; top: 0; z-index: 1000;
+        }
+        .navbar .logo { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 900; font-style: italic; color: var(--bg-paper); text-decoration: none; }
+        .user-info span b { color: #f3c1cf; margin: 0 5px; }
+
+        .container { 
+            max-width: 1000px; margin: 60px auto; padding: 0 20px; 
+            display: flex; flex-direction: column; align-items: center;
+        }
+
+        /* 💡 報紙頭版印刷質感的大標題區區塊 */
+        .hub-header {
+            text-align: center;
+            margin-bottom: 4rem;
+            animation: journalFadeIn 1s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .hub-title { 
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 4rem; 
+            font-weight: 900;
+            font-style: italic; 
+            margin: 0 0 10px 0;
+            letter-spacing: -1px;
+        }
+
+        .hub-subtitle {
+            font-size: 1.1rem;
+            color: #555;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        .hub-subtitle span {
+            color: var(--landlord-accent);
+            font-family: 'Playfair Display', serif;
+            font-style: italic;
+        }
+
+        /* 💡 核心優化：線條裁切的雙軌功能大網格（徹底揚棄 AI 套版大陰影與藥丸圓角） */
+        .grid-portal {
+            display: flex; 
+            width: 100%; 
+            gap: 40px; 
+            box-sizing: border-box;
+            animation: journalFadeIn 1.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* 報紙專欄方塊卡片 */
+        .portal-card {
+            flex: 1;
+            background: #ffffff;
+            border: 2px solid var(--border-line);
+            border-radius: 0px; /* 堅守俐落直角 */
+            padding: 50px 40px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* 懸停時淡淡的紙張浸潤色塊回饋 */
+        .portal-card:hover { 
+            background-color: rgba(201, 111, 138, 0.06); 
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+        }
+
+        .card-icon { 
+            font-size: 4rem; 
+            margin-bottom: 15px; 
+            filter: grayscale(0.2);
+            transition: transform 0.3s ease;
+        }
+        .portal-card:hover .card-icon {
+            transform: scale(1.1) rotate(4deg);
+        }
+
+        .portal-card h3 {
+            font-family: 'Playfair Display', 'Noto Sans TC', serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-charcoal);
+            margin: 0 0 15px 0;
+        }
+
+        .card-desc {
+            font-size: 0.95rem;
+            color: #555;
+            line-height: 1.6;
+            margin: 0 0 40px 0;
+            min-height: 50px;
+        }
+
+        /* 💡 俐落硬朗的直角純線條框線按鈕 */
+        .btn-portal {
+            display: block;
+            width: 100%;
+            padding: 15px; 
+            text-align: center; 
+            text-decoration: none;
+            font-weight: 700; 
+            font-size: 1rem;
+            letter-spacing: 1px;
+            box-sizing: border-box;
+            border: 2px solid var(--border-line);
+            border-radius: 0px; 
+            transition: all 0.3s ease;
+        }
+
+        /* 一滿一空，極具排版層次 */
+        .btn-publish { background: var(--text-charcoal); color: var(--bg-paper); }
+        .btn-publish:hover { background: var(--landlord-accent); color: white; border-color: var(--landlord-accent); }
+
+        .btn-manage { background: transparent; color: var(--text-charcoal); }
+        .btn-manage:hover { background: var(--text-charcoal); color: var(--bg-paper); }
+
+        /* 底部註銷登出連結 */
+        .logout-link {
+            display: inline-block;
+            margin-top: 50px;
+            color: var(--text-charcoal);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            transition: color 0.2s;
+            border-bottom: 1px solid var(--text-charcoal);
+            padding-bottom: 2px;
+        }
+        .logout-link:hover {
+            color: var(--landlord-accent);
+            border-color: var(--landlord-accent);
+        }
+        .logout-form { margin-top: 50px; }
+        .logout-link { margin-top: 0; background: transparent; border: 0; cursor: pointer; font-family: inherit; }
+
+        @keyframes journalFadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 720px) {
+            .container { width: 100%; margin: 36px auto; padding: 0 16px; box-sizing: border-box; }
+            .hub-header { margin-bottom: 2rem; }
+            .hub-title { font-size: clamp(2.6rem, 15vw, 4rem); }
+            .grid-portal { flex-direction: column; gap: 20px; }
+            .portal-card { padding: 34px 24px; }
+            .card-desc { min-height: 0; margin-bottom: 28px; }
+        }
+    </style>
+</head>
+<body>
+    {% set nav_active = 'provider' %}
+    {% include '_member_nav.html' %}
+
+    <div class="container">
+        
+        <!-- 💡 報紙頭版引言風 Header -->
+        <div class="hub-header">
+            <h1 class="hub-title">場地管理</h1>
+            <div class="hub-subtitle"><span>{{ user.display_name }}</span></div>
+        </div>
+        
+        <!-- 💡 雙欄實線幾何大網格區塊 -->
+        <div class="grid-portal">
+            
+            <!-- 左卡片：發佈新攤位 (對應原始 dashboard 路由) -->
+            <div class="portal-card">
+                <div style="width: 100%;">
+                    <div class="card-icon">🏗️</div>
+                    <h3>刊登攤位</h3>
+                    <p class="card-desc">填寫場地資料並送審；通過後開放預約。</p>
+                </div>
+                <a href="/landlord/{{ user.id }}/" class="btn-portal btn-publish">刊登攤位</a>
+            </div>
+
+            <!-- 右卡片：管理歷史紀錄 (對應原始 history 路由) -->
+            <div class="portal-card">
+                <div style="width: 100%;">
+                    <div class="card-icon">📊</div>
+                    <h3>攤位與預約</h3>
+                    <p class="card-desc">查看審核、預約、收益與評價。</p>
+                </div>
+                <a href="/landlord/history/{{ user.id }}/" class="btn-portal btn-manage">管理攤位與預約</a>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>
