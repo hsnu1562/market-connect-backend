@@ -224,25 +224,24 @@
     <main class="sheet">
         <header class="sheet-header">
             <div>
-                <p class="eyebrow">SPACIS Member Sheet</p>
-                <h1>{% if is_first_setup %}完成個人資料{% else %}編輯個人資料{% endif %}</h1>
+                <p class="eyebrow">會員資料</p>
+                <h1>個人資料</h1>
             </div>
-            <p class="header-note">{% if is_first_setup %}請設定暱稱、生日與聯絡資料。完成後會回到你原本要預約或刊登的位置。{% else %}更新 SPACIS 顯示與聯絡資料。{% endif %}</p>
+            <p class="header-note">攤商品牌與預約聯絡資料請至「品牌資料」編輯。</p>
         </header>
 
         <div class="sheet-body">
             <aside class="identity-panel">
                 {% if google_email %}
-                    <p class="step">Google identity</p>
+                    <p class="step">Google 帳戶</p>
                     <p class="identity-label">登入信箱</p>
                     <p class="identity-email">{{ google_email }}</p>
-                    <span class="verified">Google verified</span>
-                    <p class="identity-copy">Google 信箱用於識別帳戶，不能在此修改。SPACIS 不會取得或儲存你的 Google 密碼。</p>
+                    <span class="verified">已驗證</span>
+                    <p class="identity-copy">登入信箱無法在此修改。</p>
                 {% else %}
-                    <p class="step">Development account</p>
+                    <p class="step">測試帳戶</p>
                     <p class="identity-label">本機測試帳戶</p>
                     <p class="identity-email">{{ current_user.username }}</p>
-                    <p class="identity-copy">這個入口只會在啟用本機帳號測試時出現，不是正式環境的登入方式。</p>
                 {% endif %}
             </aside>
 
@@ -255,17 +254,9 @@
                     <div class="error" role="alert">{{ error }}</div>
                 {% endif %}
 
-                <div class="name-grid">
-                    <div class="field">
-                        <label for="nickname">公開暱稱</label>
-                        <input id="nickname" name="nickname" type="text" value="{{ form_data.nickname }}" maxlength="50" autocomplete="nickname" placeholder="其他使用者會看到這個名稱" required>
-                        <p class="field-help">導覽列、預約與評價會顯示暱稱，不會再顯示內部的 google_* 帳號。</p>
-                    </div>
-                    <div class="field">
-                        <label for="birth_date">生日</label>
-                        <input id="birth_date" name="birth_date" type="date" value="{{ form_data.birth_date }}" autocomplete="bday" required>
-                        <p class="field-help">生日屬於私人帳戶資料，不會公開顯示。</p>
-                    </div>
+                <div class="field">
+                    <label for="nickname">顯示名稱（選填）</label>
+                    <input id="nickname" name="nickname" type="text" value="{{ form_data.nickname }}" maxlength="50" autocomplete="nickname" placeholder="顯示於導覽列">
                 </div>
 
                 <div class="name-grid">
@@ -280,12 +271,12 @@
                 </div>
 
                 <div class="field">
-                    <label for="phone_number">聯絡電話</label>
-                    <input id="phone_number" name="phone_number" type="tel" value="{{ form_data.phone_number }}" maxlength="20" autocomplete="tel" inputmode="tel" placeholder="例如：0912 345 678 或 +886 912 345 678" required>
-                    <p class="field-help">電話屬於私人聯絡資料。目前不會發送 OTP，因此不能用於登入，只供預約成立後聯絡使用。</p>
+                    <label for="phone_number">個人電話（選填）</label>
+                    <input id="phone_number" name="phone_number" type="tel" value="{{ form_data.phone_number }}" maxlength="20" autocomplete="tel" inputmode="tel" placeholder="例如：0912 345 678 或 +886 912 345 678">
+                    <p class="field-help">預約聯絡電話請至「品牌資料」編輯。</p>
                 </div>
 
-                <button class="submit" type="submit">{% if is_first_setup %}儲存並繼續{% else %}儲存變更{% endif %}</button>
+                <button class="submit" type="submit">儲存變更</button>
             </form>
         </div>
 

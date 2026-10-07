@@ -15,7 +15,7 @@ from .web import register_web_blueprints
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 GOOGLE_DISCOVERY_URL = "https://accounts.google.com/.well-known/openid-configuration"
-SERVICE_RELEASE = "20261004.11"
+SERVICE_RELEASE = "20261004.13"
 
 
 def _normalize_database_url(database_url: str) -> str:
@@ -38,6 +38,17 @@ def _env_flag(name: str, default: bool = False) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_positive_int(name: str, default: int) -> int:
+    raw_value = os.environ.get(name, str(default))
+    try:
+        value = int(raw_value)
+    except ValueError:
+        raise RuntimeError(f"{name} must be a positive integer.") from None
+    if value <= 0:
+        raise RuntimeError(f"{name} must be a positive integer.")
+    return value
 
 
 def create_app(config: dict | None = None) -> Flask:
@@ -70,6 +81,7 @@ def create_app(config: dict | None = None) -> Flask:
         SESSION_COOKIE_SECURE=is_production or _env_flag("SESSION_COOKIE_SECURE"),
         CSRF_PROTECT=True,
         MAX_CONTENT_LENGTH=24 * 1024 * 1024,
+        BOOKING_HOLD_SECONDS=_env_positive_int("BOOKING_HOLD_SECONDS", 900),
     )
     if config:
         app.config.update(config)

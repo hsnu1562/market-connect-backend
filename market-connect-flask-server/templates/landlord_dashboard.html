@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SPACIS | 房東管理中心</title>
+    <title>SPACIS | 刊登攤位</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
     <style>
@@ -141,7 +141,7 @@
 {% include '_member_nav.html' %}
 
 <div class="container">
-    <h2 class="section-main-title">第一步：選擇攤位所屬區域</h2>
+    <h2 class="section-main-title">第一步：選擇地區</h2>
     
     <!-- 💡 核心變更：保留卡片點選，移除所有地圖元件 -->
     <div class="region-grid">
@@ -168,24 +168,24 @@
     </div>
 
     <div id="stall-form-section" class="form-section">
-        <h2 id="form-title">🏗️ 填寫攤位詳細資訊</h2>
+        <h2 id="form-title">填寫攤位資料</h2>
         <p style="margin: -8px 0 24px; padding: 14px 16px; border-left: 5px solid #c7942f; background: #fff9e8; line-height: 1.7;">
-            建立後需提交場地出租資格證明並由 SPACIS 人工審核；審核通過前不會公開攤位，也不能接受預約。
+            建立攤位後需提交出租資格證明；審核通過前不會公開。
         </p>
         {% if error %}
-            <div class="form-error" role="alert">{{ error }} 請重新選擇照片後送出。</div>
+            <div class="form-error" role="alert">{{ error }}</div>
         {% endif %}
         <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
-                <label>📍 攤位名稱</label>
-                <input type="text" name="loc_name" value="{{ request.form.get('loc_name', '') }}" placeholder="請填寫您的攤位黃金名稱..." required>
+                <label>攤位名稱</label>
+                <input type="text" name="loc_name" value="{{ request.form.get('loc_name', '') }}" placeholder="例如：○○市集 A 區攤位" required>
             </div>
 
             <div class="form-group">
                 <label>1. 選擇縣市</label>
                 <select id="city-select" name="city" onchange="updateDistricts()" required>
-                    <option value="">-- 請先點選上方區域 --</option>
+                    <option value="">請先選擇地區</option>
                 </select>
             </div>
 
@@ -201,14 +201,14 @@
             </div>
 
             <div class="form-group">
-                <label>4. 門牌 / 詳細地址</label>
+                <label>4. 門牌與詳細地址</label>
                 <input type="text" name="address_detail" value="{{ request.form.get('address_detail', '') }}" placeholder="例如：100號" required>
             </div>
             
             <div class="form-group">
                 <label>5. 場地型態</label>
                 <select name="environment_type" required>
-                    <option value="">-- 請選擇室內或戶外 --</option>
+                    <option value="">請選擇場地型態</option>
                     <option value="indoor"{% if request.form.get('environment_type') == 'indoor' %} selected{% endif %}>室內場地</option>
                     <option value="outdoor"{% if request.form.get('environment_type') == 'outdoor' %} selected{% endif %}>戶外場地</option>
                     <option value="mixed"{% if request.form.get('environment_type') == 'mixed' %} selected{% endif %}>室內與戶外皆有</option>
@@ -216,8 +216,8 @@
             </div>
 
             <div class="form-group">
-                 <label>6. 設施與特色描述</label>
-                 <textarea name="facilities" rows="4" placeholder="請詳細描述您提供的硬體設施或攤位環境特色...">{{ request.form.get('facilities', '') }}</textarea>
+                 <label>6. 設施與場地說明</label>
+                 <textarea name="facilities" rows="4" placeholder="例如：桌椅、插座、遮雨棚、進場方式">{{ request.form.get('facilities', '') }}</textarea>
             </div>
             <div class="form-group">
                 <label for="stall-photos">7. 攤位照片</label>
@@ -228,7 +228,7 @@
                     <div class="photo-preview" id="photo-preview" aria-label="照片預覽"></div>
                 </div>
             </div>
-            <button type="submit" class="submit-btn">下一步：提交場地出租資格證明</button>
+            <button type="submit" class="submit-btn">下一步：出租資格審核</button>
         </form>
     </div>
 </div>

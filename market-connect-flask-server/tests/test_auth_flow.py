@@ -51,7 +51,7 @@ def test_google_only_account_hides_and_disables_local_auth(app, client):
     response = client.get("/account/?intent=tenant")
 
     assert response.status_code == 200
-    assert "使用 Google 登入 / 註冊".encode() in response.data
+    assert "使用 Google 登入".encode() in response.data
     assert b"/register/Tenant" not in response.data
     assert b"/login/Tenant" not in response.data
     assert client.get("/register/Tenant").status_code == 302
@@ -130,7 +130,7 @@ def test_registration_validation_and_csrf_protection(app, client):
         follow_redirects=True,
     )
     assert response.status_code == 200
-    assert "此帳號名稱已被使用".encode() in response.data
+    assert "這個帳號已有人使用".encode() in response.data
     with app.app_context():
         assert User.query.filter_by(username="new_renter").count() == 1
 

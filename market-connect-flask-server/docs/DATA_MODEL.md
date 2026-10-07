@@ -12,8 +12,14 @@ These existing tables support the customer-facing service:
 
 - `user`: account profile, legacy primary role, status, reputation, and a
   non-self-assignable `is_admin` operations flag.
-- `user_role`: all role memberships; one user can be both renter and provider.
+- `user_role`: all role memberships; one user can operate as both Vendor and
+  Provider. The stored values remain `Tenant` and `Landlord` for compatibility.
 - `auth_identity`: Google or future LINE identity keyed by provider subject.
+- `vendor_profile`: the optional public marketplace identity for one Vendor
+  account. The MVP enforces one profile per user with a unique `user_id`, while
+  keeping brand data separate from login identity and personal account fields.
+  Brand name, category, description, image, and social links are public;
+  contact and food registration fields are private transaction data.
 - `stall`: a provider-owned physical stall or rentable space. It records the
   indoor/outdoor environment, whether it rents hourly or as a complete daily
   period, and the 1/2/3-hour minimum for hourly reservations.
@@ -32,14 +38,48 @@ These existing tables support the customer-facing service:
   duration, and price. In hourly mode each row is one hour and selected rows
   must be consecutive. In daily mode one row represents the entire indivisible
   opening period and its price is the flat total.
-- `booking`: a renter's reservation for exactly one slot, online payment state,
-  and QR code group. New checkout accepts only the `Credit Card` marker; legacy
-  cash values may remain readable but cannot be created or manually confirmed.
+- `booking`: a Vendor's reservation for exactly one slot and a QR-code group.
+  Reservation state is `HELD`, `CONFIRMED`, `EXPIRED`, or `CANCELLED`; it is
+  independent from payment state. A partial unique index permits only one
+  active hold/confirmation per slot while preserving expired history.
+- `booking_requirement`: one immutable operational snapshot shared by all
+  `booking` rows in a QR-code group. It records electricity, gas, equipment,
+  and vehicle-plate needs for that reservation. Existing bookings retain a null
+  reference and are not rewritten.
+- `payment_transaction`: provider-independent payment intent for one QR-code
+  booking group, including amount, currency, provider references, timestamps,
+  and `PENDING`, `PROCESSING`, `VERIFIED`, `FAILED`, or `REFUNDED` state.
+  Historical booking payment strings remain only as untrusted legacy evidence.
 - `stall_price`: an optional pricing record for a stall date and hour.
-- `review`: one renter or provider review per booking and reviewer.
+- `review`: one Vendor or Provider review per booking and reviewer.
 
 Providers may prepare `stall` and `slot` draft records, but only stalls with an
 approved `stall_certification` power public availability and bookings.
+
+## Baseline Technical Debt
+
+Reservation and payment statuses remain application-validated strings. The
+database does not yet enforce their allowed values with `CHECK` constraints or
+PostgreSQL enums; that hardening is deferred to avoid widening the Phase 2
+baseline repair.
+
+Migration `20261004_05` historically represents
+`stall_certification.stall_id` as a unique constraint plus a non-unique index,
+while current SQLAlchemy metadata describes a unique index. Migrations 10 and
+11 deliberately do not rewrite that older migration difference.
+
+## Profile And Privacy Boundary
+
+`user` remains the authenticated account and retains nullable historical
+`birth_date`, nickname, name, and telephone fields. Birthday is no longer
+collected or required; existing values are preserved. `vendor_profile` is
+created only when the account first needs to book, never fabricated during
+migration.
+
+Public Vendor serializers explicitly whitelist brand fields. Contact phone,
+private email, food registration number, vehicle plate, and operational
+requirements are available only to the booking's Vendor, the Provider owning
+the booked stall, or an authorized admin.
 
 ## External Intake Layer
 

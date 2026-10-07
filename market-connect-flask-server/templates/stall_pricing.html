@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SPACIS | 檔期定價管理</title>
+    <title>SPACIS | 出租時段與價格</title>
     <!-- 引入 Flatpickr 樣式與 Miranda 網站靈魂：古典優雅的襯線字體 Playfair Display -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
@@ -162,7 +162,7 @@
 <!-- 💡 完美呼應 image_01c19c.png 結構的大置中第二步主標題與精緻下底線 -->
 <div style="text-align: center; margin-top: 50px; margin-bottom: 40px;">
     <h1 style="font-family: 'Playfair Display', 'Noto Sans TC', serif; font-size: 2.2rem; font-weight: 900; color: var(--text-charcoal); margin: 0 auto; letter-spacing: -1px; display: inline-block; position: relative;">
-        第三步：設定時段與定價
+        第三步：設定出租時段與價格
     </h1>
     <!-- 復古報紙裝飾橫線，完美複製第一步地圖頁面的經典視覺細節 -->
     <div style="width: 100px; height: 2px; background: var(--text-charcoal); margin: 15px auto 0 auto;"></div>
@@ -170,15 +170,15 @@
 
 <div class="card">
     <p style="color: #555; font-weight: 600; margin: 0; text-align: center; font-size: 1.05rem;">
-        先決定出租單位，再為每個開放日期設定時間與價格
+        選擇出租方式，再設定日期、時段與價格。
     </p>
     {% if stall.certification.status == 'pending' %}
         <p style="margin: 24px 0 0; padding: 14px 16px; border: 1px solid #a77b1c; border-left-width: 6px; background: #fff9e8; color: #72530f; line-height: 1.7;">
-            <strong>場地認證正在人工審核。</strong> 您可以先設定時段與價格，但審核通過前攤位不會公開，也不能接受預約。
+            <strong>審核中。</strong> 可先設定時段與價格，通過前不會公開。
         </p>
     {% else %}
         <p style="margin: 24px 0 0; padding: 14px 16px; border: 1px solid #315c45; border-left-width: 6px; background: #edf5ef; color: #244a36;">
-            場地認證已通過，完成時段設定後即可公開接受預約。
+            審核已通過；儲存時段後開放預約。
         </p>
     {% endif %}
 
@@ -214,7 +214,7 @@
             </div>
 
             <div class="side">
-                <label>2. 設定時段 (幾點到幾點)</label>
+                <label>2. 設定時段（幾點到幾點）</label>
                 <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 5px;">
                     <select id="start_h">
                         {% for h in hours %}
@@ -229,8 +229,8 @@
                     </select>
                 </div>
 
-                <label id="price-label" for="price_input">3. 每小時定價 (NT$)</label>
-                <input type="number" id="price_input" min="1" step="1" placeholder="例如: 500">
+                <label id="price-label" for="price_input">3. 每小時價格（NT$）</label>
+                <input type="number" id="price_input" min="1" step="1" placeholder="例如：500">
 
                 <button type="button" class="btn-add" onclick="addItem()">＋ 加入清單</button>
 
@@ -242,7 +242,7 @@
 
         <div id="hidden-inputs-container"></div>
 
-        <button type="submit" class="btn-main">🚀 確認並正式發佈</button>
+        <button type="submit" class="btn-main">儲存時段與價格</button>
     </form>
 </div>
 
@@ -268,14 +268,14 @@
         minimumField.style.opacity = isDaily ? '0.45' : '1';
         minimumSelect.disabled = isDaily;
         document.getElementById('policy-help').textContent = isDaily
-            ? '租客只能預約完整開放時段。價格是整段時段的固定總價，不會再乘上時數。'
-            : '租客可選擇連續時段，總價會以每個已選小時的價格相加，且必須符合最低預約時數。';
+            ? '每次預約一個完整時段，價格為該時段總價。'
+            : '可選同一天的連續時段；總價依所選時數計算，並須符合最低時數。';
         document.getElementById('price-label').textContent = isDaily
-            ? '3. 整日時段固定總價 (NT$)'
-            : '3. 每小時定價 (NT$)';
+            ? '3. 整日時段總價（NT$）'
+            : '3. 每小時價格（NT$）';
         document.getElementById('price_input').placeholder = isDaily
-            ? '例如: 3600（完整時段總價）'
-            : '例如: 500（每小時）';
+            ? '例如：3600（完整時段總價）'
+            : '例如：500（每小時）';
     }
 
     function changeBookingMode() {
@@ -297,9 +297,9 @@
         const e = parseInt(document.getElementById('end_h').value);
         const p = parseInt(document.getElementById('price_input').value);
 
-        if (!d) return alert("請先選擇日期！");
-        if (!p || p <= 0) return alert("請填寫有效金額！");
-        if (s >= e) return alert("時間設定錯誤！(開始時間必須早於結束時間)");
+        if (!d) return alert("請選擇日期。");
+        if (!p || p <= 0) return alert("請輸入大於 0 的金額。");
+        if (s >= e) return alert("結束時間須晚於開始時間。");
 
         if (activeMode === 'daily') {
             Object.keys(queue)
@@ -349,7 +349,7 @@
             return;
         }
 
-        let htmlContent = '<strong style="display: block; margin-bottom: 15px; font-family: \'Playfair Display\', serif; font-style: italic;">Selected Slots / 已加入的時段清單：</strong>';
+        let htmlContent = '<strong style="display: block; margin-bottom: 15px; font-family: \'Playfair Display\', serif; font-style: italic;">已加入時段</strong>';
 
         keys.forEach(key => {
             const item = queue[key];
@@ -379,7 +379,7 @@
     document.getElementById('main-form').onsubmit = function(e) {
         const keys = Object.keys(queue);
         if (keys.length === 0) {
-            alert("請至少加入一個預約時段檔期！");
+            alert("請至少加入一個出租時段。");
             e.preventDefault();
             return false;
         }

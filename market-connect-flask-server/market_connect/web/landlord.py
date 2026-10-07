@@ -14,6 +14,7 @@ from ..services.certification_documents import (
     replace_certification_documents,
     validate_document_uploads,
 )
+from ..services.bookings import exclude_active_reservations, expire_held_bookings
 from ..services.stall_photos import (
     MAX_STALL_PHOTOS,
     MAX_STALL_PHOTO_BYTES,
@@ -42,8 +43,8 @@ PROOF_TYPE_LABELS = {
 }
 CERTIFICATION_STATUS_LABELS = {
     "not_submitted": "尚未送審",
-    "pending": "人工審核中",
-    "approved": "已通過認證",
+    "pending": "審核中",
+    "approved": "已通過",
     "rejected": "退回補件",
 }
 
@@ -63,7 +64,7 @@ def landlord_dashboard(user_id: int):
         else:
             environment_type = request.form.get("environment_type", "")
             if environment_type not in ALLOWED_ENVIRONMENT_TYPES:
-                abort(400, description="Invalid stall environment type.")
+                abort(400, description="請選擇場地類型。")
             stall = Stall(
                 owner=user,
                 loc_name=request.form["loc_name"],
@@ -102,7 +103,7 @@ def stall_certification(stall_id: int):
     error = None
     if request.method == "POST":
         if certification is not None and certification.status == "approved":
-            abort(409, description="Approved certification cannot be overwritten.")
+            abort(409, description="此場地已通過出租資格審核，無法直接修改。")
         try:
             uploaded_documents = validate_document_uploads(
                 request.files.getlist("evidence_documents")
@@ -154,11 +155,12 @@ def stall_certification(stall_id: int):
 @login_required("Landlord")
 def landlord_history(user_id: int):
     landlord = require_current_user_id(user_id)
+    expire_held_bookings()
     stall_ids = [stall.id for stall in landlord.stalls]
 
     unbooked_slots = (
-        Slot.query.outerjoin(Booking)
-        .filter(Slot.stall_id.in_(stall_ids) if stall_ids else False, Booking.id.is_(None))
+        exclude_active_reservations(Slot.query)
+        .filter(Slot.stall_id.in_(stall_ids) if stall_ids else False)
         .join(Stall)
         .join(StallCertification)
         .filter(StallCertification.status == "approved")
@@ -209,18 +211,40 @@ def landlord_history(user_id: int):
 
     grouped = OrderedDict()
     for booking in bookings:
+        vendor_profile = booking.user.vendor_profile
         grouped.setdefault(
             booking.qr_code,
             {
                 "booking_id": booking.id,
                 "stall_name": booking.slot.stall.loc_name,
-                "tenant_name": booking.user.display_name,
-                "tenant_phone": booking.user.phone_number,
+                "tenant_name": (
+                    vendor_profile.brand_name
+                    if vendor_profile is not None
+                    else booking.user.display_name
+                ),
+                "tenant_contact_name": (
+                    vendor_profile.contact_name if vendor_profile is not None else None
+                ),
+                "tenant_phone": (
+                    vendor_profile.contact_phone
+                    if vendor_profile is not None
+                    else booking.user.phone_number
+                ),
+                "tenant_email": (
+                    vendor_profile.contact_email if vendor_profile is not None else None
+                ),
+                "food_registration_number": (
+                    vendor_profile.food_registration_number
+                    if vendor_profile is not None
+                    else None
+                ),
+                "requirements": booking.requirements,
                 "date": booking.slot.date.strftime("%Y-%m-%d"),
                 "time_list": [],
                 "end_time_list": [],
                 "price": 0,
-                "status": booking.payment_status,
+                "payment_status": booking.payment_state,
+                "reservation_status": booking.reservation_status,
                 "is_reviewed": booking.id in reviewed_bookings,
             },
         )
@@ -271,13 +295,13 @@ def stall_pricing(stall_id: int):
     if request.method == "POST":
         booking_mode = request.form.get("booking_mode", "")
         if booking_mode not in ALLOWED_BOOKING_MODES:
-            abort(400, description="Invalid booking mode.")
+            abort(400, description="請選擇出租方式。")
         try:
             minimum_booking_hours = int(request.form.get("minimum_booking_hours", "1"))
         except ValueError:
-            abort(400, description="Invalid minimum booking duration.")
+            abort(400, description="請選擇最低預約時數。")
         if booking_mode == "hourly" and minimum_booking_hours not in ALLOWED_MINIMUM_HOURS:
-            abort(400, description="Invalid minimum booking duration.")
+            abort(400, description="請選擇最低預約時數。")
 
         slot_items = _parse_slot_items(request.form.get("slots_json", ""), booking_mode)
         _validate_slot_update(
@@ -308,38 +332,38 @@ def _parse_slot_items(raw_slots: str, booking_mode: str) -> list[dict]:
     try:
         items = json.loads(raw_slots)
     except (TypeError, ValueError):
-        abort(400, description="Invalid slot data.")
+        abort(400, description="時段資料有誤，請重新設定。")
     if not isinstance(items, list) or not items:
-        abort(400, description="At least one availability period is required.")
+        abort(400, description="請至少新增一個可預約時段。")
 
     normalized_items = []
     seen_periods = set()
     seen_daily_dates = set()
     for item in items:
         if not isinstance(item, dict):
-            abort(400, description="Invalid slot data.")
+            abort(400, description="時段資料有誤，請重新設定。")
         try:
             slot_date = parse_date(item["date"])
             hour = int(item["hour"])
             duration_hours = int(item.get("duration_hours", 1))
             price = int(item["price"])
         except (KeyError, TypeError, ValueError):
-            abort(400, description="Invalid slot data.")
+            abort(400, description="時段資料有誤，請重新設定。")
 
         if hour < 0 or duration_hours < 1 or hour + duration_hours > 24 or price <= 0:
-            abort(400, description="Invalid slot time or price.")
+            abort(400, description="請確認時段與價格。")
         if slot_date < date.today():
-            abort(400, description="Availability cannot be published in the past.")
+            abort(400, description="無法刊登過去的時段。")
         if booking_mode == "hourly" and duration_hours != 1:
-            abort(400, description="Hourly slots must be one hour long.")
+            abort(400, description="按小時出租的時段須為 1 小時。")
         if booking_mode == "daily":
             if slot_date in seen_daily_dates:
-                abort(400, description="Only one full-day period is allowed per date.")
+                abort(400, description="同一天只能刊登一個整日時段。")
             seen_daily_dates.add(slot_date)
 
         period_key = (slot_date, hour, duration_hours)
         if period_key in seen_periods:
-            abort(400, description="Duplicate availability period.")
+            abort(400, description="這個時段已經加入。")
         seen_periods.add(period_key)
         normalized_items.append(
             {
@@ -360,13 +384,13 @@ def _parse_certification_submission(form, *, has_documents: bool) -> dict:
     proof_reference = form.get("proof_reference", "").strip()
 
     if any("\n" in value or "\r" in value for value in (legal_name, phone, proof_reference)):
-        raise ValueError("認證欄位不可包含換行字元。")
+        raise ValueError("姓名、電話與文件說明請勿換行。")
     if not 2 <= len(legal_name) <= 100:
         raise ValueError("請填寫 2 至 100 字的法定姓名或機構名稱。")
     if not 8 <= sum(character.isdigit() for character in phone) <= 20:
-        raise ValueError("請填寫可供人工覆核的有效聯絡電話。")
+        raise ValueError("聯絡電話需包含 8–20 個數字。")
     if relationship not in RELATIONSHIP_LABELS:
-        raise ValueError("請選擇您與場地的合法關係。")
+        raise ValueError("請選擇與場地的關係。")
     if proof_type not in PROOF_TYPE_LABELS:
         raise ValueError("請選擇證明文件類型。")
     if len(proof_reference) > 120:
@@ -375,7 +399,7 @@ def _parse_certification_submission(form, *, has_documents: bool) -> dict:
     if not has_documents:
         raise ValueError("請上傳至少一份證明文件。")
     if form.get("declaration_accepted") != "yes":
-        raise ValueError("送審前必須確認您有權出租此場地並同意人工覆核。")
+        raise ValueError("請確認有權出租場地，並同意人工審核。")
 
     return {
         "applicant_legal_name": legal_name,
@@ -395,7 +419,7 @@ def _validate_slot_update(
 ) -> None:
     existing_slots = Slot.query.filter_by(stall_id=stall.id).all()
     if existing_slots and booking_mode != stall.booking_mode:
-        abort(409, description="Rental mode cannot change after availability is published.")
+        abort(409, description="刊登時段後，無法變更出租方式。")
 
     for item in slot_items:
         new_start = item["time"]
@@ -404,7 +428,7 @@ def _validate_slot_update(
             existing_end = existing.time + existing.duration_hours
             overlaps = new_start < existing_end and existing.time < new_end
             if item["date"] == existing.date and overlaps:
-                abort(409, description="Availability overlaps an existing period.")
+                abort(409, description="這個時段與已刊登時段重疊。")
 
     if booking_mode != "hourly":
         return
@@ -416,7 +440,7 @@ def _validate_slot_update(
             if (
                 existing.date == slot_date
                 and existing.duration_hours == 1
-                and existing.booking is None
+                and not existing.has_active_reservation
             )
         }
         hours.update(item["time"] for item in slot_items if item["date"] == slot_date)
@@ -436,7 +460,6 @@ def _validate_slot_update(
             abort(
                 400,
                 description=(
-                    f"Each published date must offer at least "
-                    f"{minimum_booking_hours} consecutive hours."
+                    f"每個日期至少須提供連續 {minimum_booking_hours} 小時。"
                 ),
             )

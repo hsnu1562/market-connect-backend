@@ -3,8 +3,10 @@ from __future__ import annotations
 from market_connect.models import (
     AuthIdentity,
     Booking,
+    BookingRequirements,
     ExternalMarketLead,
     ImportBatch,
+    PaymentTransaction,
     Review,
     Slot,
     Stall,
@@ -14,6 +16,7 @@ from market_connect.models import (
     StallPrice,
     User,
     UserRole,
+    VendorProfile,
     db,
     recalculate_reputation,
 )
@@ -22,8 +25,10 @@ from market_connect.models import (
 __all__ = [
     "AuthIdentity",
     "Booking",
+    "BookingRequirements",
     "ExternalMarketLead",
     "ImportBatch",
+    "PaymentTransaction",
     "Review",
     "Slot",
     "Stall",
@@ -33,6 +38,7 @@ __all__ = [
     "StallPrice",
     "User",
     "UserRole",
+    "VendorProfile",
     "db",
     "recalculate_reputation",
 ]

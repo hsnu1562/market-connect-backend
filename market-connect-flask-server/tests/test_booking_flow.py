@@ -1,20 +1,53 @@
 from __future__ import annotations
 
 import json
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from hashlib import sha256
 from io import BytesIO
 from pathlib import Path
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import generate_password_hash
 
 from app import create_app
-from models import Booking, Slot, Stall, StallCertification, StallPhoto, User, db
+from models import (
+    Booking,
+    PaymentTransaction,
+    Slot,
+    Stall,
+    StallCertification,
+    StallPhoto,
+    User,
+    VendorProfile,
+    db,
+)
+from market_connect.models import (
+    PAYMENT_FAILED,
+    PAYMENT_PENDING,
+    PAYMENT_PROCESSING,
+    PAYMENT_VERIFIED,
+    RESERVATION_CONFIRMED,
+    RESERVATION_EXPIRED,
+    RESERVATION_HELD,
+)
+from market_connect.services.bookings import (
+    BookingSelectionError,
+    as_utc,
+    create_booking_for_slots,
+    expire_held_bookings,
+)
+from market_connect.services.booking_requirements import build_booking_requirements
 from market_connect.services.certification_documents import (
     ValidatedDocument,
     replace_certification_documents,
 )
+from market_connect.services.payments import (
+    PaymentStateError,
+    begin_payment,
+    verify_payment,
+)
+from market_connect.services.vendor_profiles import update_vendor_profile
 
 
 CERTIFICATION_DOCUMENT = b"%PDF-1.7\nTest certification evidence\n%%EOF\n"
@@ -84,6 +117,25 @@ def app():
         )
         db.session.add_all([landlord, tenant1, tenant2, stall])
         db.session.flush()
+        db.session.add_all(
+            [
+                VendorProfile(
+                    user=tenant1,
+                    brand_name="Tenant One Brand",
+                    primary_category="handmade",
+                    contact_name="Tenant One",
+                    contact_phone="0913000000",
+                    contact_email="tenant1@example.com",
+                ),
+                VendorProfile(
+                    user=tenant2,
+                    brand_name="Tenant Two Brand",
+                    primary_category="services",
+                    contact_name="Tenant Two",
+                    contact_phone="0914000000",
+                ),
+            ]
+        )
         db.session.add(
             StallPhoto(
                 stall=stall,
@@ -140,10 +192,10 @@ def test_homepage_shows_available_stalls(client):
     assert 'aria-label="行動版主要導覽"'.encode() in response.data
     assert response.data.count("找攤位".encode()) >= 2
     assert response.data.count("刊登攤位".encode()) >= 2
-    assert "讓每一次出攤，都從清楚開始。".encode() in response.data
-    assert "可靠的租客".encode() in response.data
-    assert "可靠的場地主".encode() in response.data
-    assert "場地認證通過".encode() in response.data
+    assert "清楚比較，安心預約。".encode() in response.data
+    assert "依約使用場地".encode() in response.data
+    assert "維持資訊正確".encode() in response.data
+    assert "出租資格已審核".encode() in response.data
     assert b"huashan-proof" not in response.data
     assert b'/stall_photos/' in response.data
     assert "先比較供應".encode() not in response.data
@@ -181,7 +233,7 @@ def test_marketplace_exposes_discovery_filters_and_booking_policy(app, client):
     assert b'"environment_type": "indoor"' in response.data
     assert b'"booking_mode": "hourly"' in response.data
     assert b'"minimum_booking_hours": 1' in response.data
-    assert "場地認證通過".encode() in response.data
+    assert "出租資格已審核".encode() in response.data
     assert b"huashan-proof" not in response.data
     assert b'/stall_photos/' in response.data
 
@@ -234,6 +286,12 @@ def test_complete_booking_flow(app, client):
             "_csrf_token": "booking-test-token",
             "user_id": tenant2.id,
             "slot_ids": [slot1.id, slot2.id],
+            "electricity_required": "yes",
+            "electricity_details": "110V / 15A",
+            "gas_required": "yes",
+            "gas_details": "一桶瓦斯",
+            "equipment_requirements": "需要一張工作桌",
+            "vehicle_plate": "abc-1234",
         },
         follow_redirects=False,
     )
@@ -241,16 +299,30 @@ def test_complete_booking_flow(app, client):
         bookings = Booking.query.filter_by(user_id=tenant1.id).all()
         assert len(bookings) == 2
         qr_code = bookings[0].qr_code
-        assert bookings[0].payment_status == "Unpaid"
+        payment_id = bookings[0].payment_id
+        assert {booking.reservation_status for booking in bookings} == {
+            RESERVATION_HELD
+        }
+        assert all(booking.hold_expires_at is not None for booking in bookings)
+        assert bookings[0].payment.status == PAYMENT_PENDING
+        assert {booking.requirements_id for booking in bookings} == {
+            bookings[0].requirements_id
+        }
+        assert bookings[0].requirements.electricity_details == "110V / 15A"
+        assert bookings[0].requirements.gas_details == "一桶瓦斯"
+        assert bookings[0].requirements.equipment_requirements == "需要一張工作桌"
+        assert bookings[0].requirements.vehicle_plate == "ABC-1234"
     assert response.status_code == 302
     assert response.headers["Location"].endswith(f"/payment/{qr_code}/")
 
     response = client.get(f"/payment/{qr_code}/")
     assert response.status_code == 200
     assert b"Huashan Stall A" in response.data
-    assert "線上信用卡付款".encode() in response.data
+    assert "目前無法線上付款".encode() in response.data
     assert "現場現金".encode() not in response.data
     assert b"Card Number" not in response.data
+    assert "暫不開放付款".encode() in response.data
+    assert b'action="/process_payment/"' not in response.data
 
     cash_response = client.post(
         "/process_payment/",
@@ -260,11 +332,15 @@ def test_complete_booking_flow(app, client):
             "payment_method": "Cash",
         },
     )
-    assert cash_response.status_code == 400
+    assert cash_response.status_code == 503
     with app.app_context():
-        unpaid_bookings = Booking.query.filter_by(qr_code=qr_code).all()
-        assert {booking.payment_status for booking in unpaid_bookings} == {"Unpaid"}
-        assert {booking.payment_method for booking in unpaid_bookings} == {""}
+        held_bookings = Booking.query.filter_by(qr_code=qr_code).all()
+        assert {booking.reservation_status for booking in held_bookings} == {
+            RESERVATION_HELD
+        }
+        assert {booking.payment.status for booking in held_bookings} == {
+            PAYMENT_PENDING
+        }
 
     response = client.post(
         "/process_payment/",
@@ -275,17 +351,38 @@ def test_complete_booking_flow(app, client):
         },
         follow_redirects=False,
     )
-    assert response.status_code == 302
-    assert response.headers["Location"].endswith(f"/booking_success/{qr_code}/")
+    assert response.status_code == 503
 
     with app.app_context():
-        paid_bookings = Booking.query.filter_by(qr_code=qr_code).all()
-        assert {booking.payment_status for booking in paid_bookings} == {"Paid"}
-        assert {booking.payment_method for booking in paid_bookings} == {"Credit Card"}
+        still_held = Booking.query.filter_by(qr_code=qr_code).all()
+        assert {booking.reservation_status for booking in still_held} == {
+            RESERVATION_HELD
+        }
+        assert db.session.get(PaymentTransaction, payment_id).status == PAYMENT_PENDING
+
+        begin_payment(payment_id, "test-provider")
+        verify_payment(
+            payment_id,
+            "trusted-transaction-001",
+            amount=600,
+            currency="TWD",
+        )
+        confirmed = Booking.query.filter_by(qr_code=qr_code).all()
+        assert {booking.reservation_status for booking in confirmed} == {
+            RESERVATION_CONFIRMED
+        }
+        assert {booking.payment_state for booking in confirmed} == {PAYMENT_VERIFIED}
+        with pytest.raises(PaymentStateError):
+            verify_payment(
+                payment_id,
+                "trusted-transaction-001",
+                amount=600,
+                currency="TWD",
+            )
 
     response = client.get(f"/booking_success/{qr_code}/")
     assert response.status_code == 200
-    assert "線上信用卡付款".encode() in response.data
+    assert "test-provider 已驗證".encode() in response.data
 
     response = client.get(f"/my_bookings/{tenant1.id}/")
     assert response.status_code == 200
@@ -301,6 +398,110 @@ def test_complete_booking_flow(app, client):
     assert f'name="slot_ids" value="{slot2.id}"'.encode() not in response.data
     assert f'name="slot_ids" value="{slot3.id}"'.encode() in response.data
     assert b'name="user_id"' not in response.data
+
+
+def test_expired_hold_releases_slot_for_another_tenant(app):
+    created_at = datetime(2026, 10, 4, 8, 0, tzinfo=UTC)
+    with app.app_context():
+        tenant1 = User.query.filter_by(username="tenant1").one()
+        tenant2 = User.query.filter_by(username="tenant2").one()
+        slot = Slot.query.order_by(Slot.time).first()
+
+        first_qr, created_count = create_booking_for_slots(
+            tenant1.id,
+            [slot.id],
+            now=created_at,
+        )
+        assert created_count == 1
+        first_booking = Booking.query.filter_by(qr_code=first_qr).one()
+        first_payment_id = first_booking.payment_id
+        assert as_utc(first_booking.hold_expires_at) == created_at + timedelta(minutes=15)
+
+        expired_count = expire_held_bookings(created_at + timedelta(minutes=16))
+        assert expired_count == 1
+        assert first_booking.reservation_status == RESERVATION_EXPIRED
+        assert db.session.get(PaymentTransaction, first_payment_id).status == PAYMENT_FAILED
+
+        second_qr, second_count = create_booking_for_slots(
+            tenant2.id,
+            [slot.id],
+            now=created_at + timedelta(minutes=16),
+        )
+        assert second_count == 1
+        assert second_qr != first_qr
+        assert Booking.query.filter_by(slot_id=slot.id).count() == 2
+
+
+def test_active_hold_prevents_double_booking(app):
+    with app.app_context():
+        tenant1 = User.query.filter_by(username="tenant1").one()
+        tenant2 = User.query.filter_by(username="tenant2").one()
+        slot = Slot.query.order_by(Slot.time).first()
+
+        create_booking_for_slots(tenant1.id, [slot.id])
+        with pytest.raises(BookingSelectionError):
+            create_booking_for_slots(tenant2.id, [slot.id])
+
+        assert Booking.query.filter_by(slot_id=slot.id).count() == 1
+
+
+def test_payment_verification_rejects_bad_amount_and_expired_hold(app):
+    now = datetime(2026, 10, 4, 9, 0, tzinfo=UTC)
+    with app.app_context():
+        tenant = User.query.filter_by(username="tenant1").one()
+        slots = Slot.query.order_by(Slot.time).all()
+
+        qr_code, _ = create_booking_for_slots(tenant.id, [slots[0].id], now=now)
+        booking = Booking.query.filter_by(qr_code=qr_code).one()
+        begin_payment(booking.payment_id, "test-provider", now=now)
+        assert booking.payment.status == PAYMENT_PROCESSING
+
+        with pytest.raises(PaymentStateError):
+            verify_payment(
+                booking.payment_id,
+                "bad-amount",
+                amount=booking.payment.amount + 1,
+                currency="TWD",
+                now=now,
+            )
+        assert booking.reservation_status == RESERVATION_HELD
+        assert booking.payment.status == PAYMENT_PROCESSING
+
+        with pytest.raises(PaymentStateError):
+            verify_payment(
+                booking.payment_id,
+                "too-late",
+                amount=booking.payment.amount,
+                currency="TWD",
+                now=now + timedelta(minutes=16),
+            )
+        assert booking.reservation_status == RESERVATION_EXPIRED
+        assert booking.payment.status == PAYMENT_FAILED
+
+
+def test_payment_endpoint_enforces_booking_ownership(app, client):
+    with app.app_context():
+        tenant1 = User.query.filter_by(username="tenant1").one()
+        tenant2 = User.query.filter_by(username="tenant2").one()
+        slot = Slot.query.order_by(Slot.time).first()
+        qr_code, _ = create_booking_for_slots(tenant1.id, [slot.id])
+        tenant2_id = tenant2.id
+
+    with client.session_transaction() as session:
+        session["user_id"] = tenant2_id
+        session["_csrf_token"] = "ownership-token"
+
+    response = client.post(
+        "/api/v1/payments",
+        json={"qr_code": qr_code, "payment_method": "Credit Card"},
+        headers={"X-CSRF-Token": "ownership-token"},
+    )
+    assert response.status_code == 403
+
+    with app.app_context():
+        booking = Booking.query.filter_by(qr_code=qr_code).one()
+        assert booking.reservation_status == RESERVATION_HELD
+        assert booking.payment.status == PAYMENT_PENDING
 
 
 def test_provider_can_publish_full_day_stall(app, client):
@@ -718,8 +919,9 @@ def test_hourly_fragments_that_cannot_meet_minimum_are_hidden(app, client):
                 user=tenant2,
                 slot=slots[1],
                 qr_code="MIDDLE01",
-                payment_status="Paid",
-                payment_method="Credit Card",
+                reservation_status=RESERVATION_CONFIRMED,
+                legacy_payment_status="Paid",
+                legacy_payment_method="Credit Card",
             )
         )
         db.session.commit()
@@ -845,8 +1047,8 @@ def test_tenant_navigation_stays_available_across_member_pages(app, client):
             assert expected_link.encode() in response.data
 
     hub_response = client.get(f"/tenant/hub/{tenant.id}/")
-    assert 'aria-current="page">租客中心'.encode() in hub_response.data
-    assert "開通出租".encode() in hub_response.data
+    assert 'aria-current="page">攤商中心'.encode() in hub_response.data
+    assert "刊登攤位".encode() in hub_response.data
 
 
 def test_provider_can_enable_tenant_navigation_without_dead_end(app, client):
@@ -874,8 +1076,8 @@ def test_provider_can_enable_tenant_navigation_without_dead_end(app, client):
 
     activation_page = client.get("/account/?intent=tenant")
     assert activation_page.status_code == 200
-    assert "啟用租客功能".encode() in activation_page.data
-    assert 'aria-current="page">+ 開通租客'.encode() in activation_page.data
+    assert "成為攤商".encode() in activation_page.data
+    assert 'aria-current="page">成為攤商'.encode() in activation_page.data
 
     response = client.post(
         "/account/roles/Tenant",
@@ -900,7 +1102,7 @@ def test_api_booking_flow(app, client):
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     assert response.get_json()["status"] == "ok"
-    assert response.get_json()["release"] == "20261004.11"
+    assert response.get_json()["release"] == "20261004.13"
 
     response = client.get(f"/api/v1/stalls/{stall.id}/slots")
     assert response.status_code == 200
@@ -911,6 +1113,7 @@ def test_api_booking_flow(app, client):
     assert stalls_payload[0]["photo_urls"]
     assert stalls_payload[0]["photo_urls"][0].startswith("/stall_photos/")
     assert "evidence_url" not in stalls_payload[0]
+    assert "owner_id" not in stalls_payload[0]
 
     with client.session_transaction() as session:
         session["user_id"] = tenant.id
@@ -918,38 +1121,57 @@ def test_api_booking_flow(app, client):
 
     response = client.post(
         "/api/v1/bookings",
-        json={"user_id": 999999, "slot_ids": [slot.id]},
+        json={
+            "user_id": 999999,
+            "slot_ids": [slot.id],
+            "requirements": {
+                "electricity_required": True,
+                "electricity_details": "110V",
+                "gas_required": False,
+                "equipment_requirements": "兩張桌子",
+                "vehicle_plate": "api-1234",
+            },
+        },
         headers={"X-CSRF-Token": "api-test-token"},
     )
     assert response.status_code == 201
     payload = response.get_json()
     assert payload["booking_count"] == 1
+    assert payload["requirements"]["electricity_details"] == "110V"
+    assert payload["requirements"]["gas_details"] is None
+    assert payload["requirements"]["equipment_requirements"] == "兩張桌子"
+    assert payload["requirements"]["vehicle_plate"] == "API-1234"
     qr_code = payload["qr_code"]
 
     with app.app_context():
-        assert Booking.query.filter_by(qr_code=qr_code).one().user_id == tenant.id
+        booking = Booking.query.filter_by(qr_code=qr_code).one()
+        assert booking.user_id == tenant.id
+        assert booking.reservation_status == RESERVATION_HELD
+        assert booking.payment_state == PAYMENT_PENDING
 
     cash_response = client.post(
         "/api/v1/payments",
         json={"qr_code": qr_code, "payment_method": "Cash"},
         headers={"X-CSRF-Token": "api-test-token"},
     )
-    assert cash_response.status_code == 400
-    assert "只接受線上信用卡付款" in cash_response.get_json()["error"]
+    assert cash_response.status_code == 503
     with app.app_context():
-        assert Booking.query.filter_by(qr_code=qr_code).one().payment_status == "Unpaid"
+        booking = Booking.query.filter_by(qr_code=qr_code).one()
+        assert booking.reservation_status == RESERVATION_HELD
+        assert booking.payment_state == PAYMENT_PENDING
 
     response = client.post(
         "/api/v1/payments",
         json={"qr_code": qr_code, "payment_method": "Credit Card"},
         headers={"X-CSRF-Token": "api-test-token"},
     )
-    assert response.status_code == 200
+    assert response.status_code == 503
 
     response = client.get(f"/api/v1/bookings/{qr_code}")
     assert response.status_code == 200
     payload = response.get_json()
-    assert payload["bookings"][0]["payment_status"] == "Paid"
+    assert payload["bookings"][0]["payment_status"] == PAYMENT_PENDING
+    assert payload["bookings"][0]["reservation_status"] == RESERVATION_HELD
 
     removed_cash_confirmation = client.post(
         "/confirm_payment/",
@@ -981,3 +1203,221 @@ def test_api_rejects_booking_below_hourly_minimum(app, client):
     assert "至少需要預約 2 小時" in response.get_json()["error"]
     with app.app_context():
         assert Booking.query.count() == 0
+
+
+def test_vendor_action_requires_profile_and_resumes_original_destination(app, client):
+    with app.app_context():
+        user = User(
+            username="new_vendor",
+            first_name="New",
+            last_name="Vendor",
+            role="Tenant",
+        )
+        db.session.add(user)
+        db.session.commit()
+        user_id = user.id
+        stall_id = Stall.query.filter_by(loc_name="Huashan Stall A").one().id
+        slot_id = Slot.query.order_by(Slot.time).first().id
+
+    booking_url = f"/booking_page/{stall_id}/{user_id}/"
+    with client.session_transaction() as session:
+        session["user_id"] = user_id
+        session["_csrf_token"] = "vendor-profile-token"
+
+    assert client.get("/stalls/").status_code == 200
+    gated = client.get(booking_url, follow_redirects=False)
+    assert gated.status_code == 302
+    assert gated.headers["Location"].startswith("/vendor/profile/")
+    assert f"next={booking_url}" in gated.headers["Location"]
+    api_gated = client.post(
+        "/api/v1/bookings",
+        json={"slot_ids": [slot_id]},
+        headers={"X-CSRF-Token": "vendor-profile-token"},
+    )
+    assert api_gated.status_code == 409
+    assert api_gated.get_json()["profile_setup_url"].startswith("/vendor/profile/")
+
+    created = client.post(
+        "/vendor/profile/",
+        data={
+            "_csrf_token": "vendor-profile-token",
+            "next": booking_url,
+            "brand_name": "New Vendor Brand",
+            "primary_category": "other",
+            "brand_description": "",
+            "instagram_url": "",
+            "facebook_url": "",
+            "website_url": "",
+            "contact_name": "New Vendor",
+            "contact_phone": "0912345678",
+            "contact_email": "private@example.com",
+            "food_registration_number": "IGNORED-FOR-NON-FOOD",
+            "profile_image": (BytesIO(STALL_PHOTO), "new-vendor.png"),
+        },
+        follow_redirects=False,
+    )
+    assert created.status_code == 302
+    assert created.headers["Location"].endswith(booking_url)
+    assert client.get(booking_url).status_code == 200
+    with app.app_context():
+        profile = VendorProfile.query.filter_by(user_id=user_id).one()
+        assert profile.food_registration_number is None
+        assert profile.has_profile_image is True
+        profile_id = profile.id
+    image = client.get(f"/vendor_profiles/{profile_id}/image/")
+    assert image.status_code == 200
+    assert image.content_type == "image/png"
+    assert image.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_vendor_profile_is_unique_per_user(app):
+    with app.app_context():
+        tenant = User.query.filter_by(username="tenant1").one()
+        db.session.add(
+            VendorProfile(
+                user_id=tenant.id,
+                brand_name="Duplicate Brand",
+                primary_category="other",
+                contact_name="Duplicate Contact",
+                contact_phone="0912555555",
+            )
+        )
+        with pytest.raises(IntegrityError):
+            db.session.commit()
+        db.session.rollback()
+        assert VendorProfile.query.filter_by(user_id=tenant.id).count() == 1
+
+
+def test_food_registration_is_conditional(app, client):
+    with app.app_context():
+        tenant = User.query.filter_by(username="tenant1").one()
+        profile = update_vendor_profile(
+            tenant,
+            brand_name="Tenant One Food",
+            primary_category="food",
+            contact_name="Tenant One",
+            contact_phone="0913000000",
+            food_registration_number="FOOD-REG-123",
+        )
+        assert profile.food_registration_number == "FOOD-REG-123"
+        tenant_id = tenant.id
+
+    with client.session_transaction() as session:
+        session["user_id"] = tenant_id
+    food_response = client.get("/vendor/profile/")
+    assert food_response.status_code == 200
+    assert b'id="food-registration-field" hidden' not in food_response.data
+
+    with app.app_context():
+        tenant = db.session.get(User, tenant_id)
+        profile = update_vendor_profile(
+            tenant,
+            brand_name="Tenant One Services",
+            primary_category="services",
+            contact_name="Tenant One",
+            contact_phone="0913000000",
+            food_registration_number="SHOULD-BE-CLEARED",
+        )
+        assert profile.food_registration_number is None
+
+    response = client.get("/vendor/profile/")
+    assert response.status_code == 200
+    assert b'id="food-registration-field" hidden' in response.data
+
+
+def test_vendor_public_boundary_and_private_booking_authorization(app, client):
+    with app.app_context():
+        tenant = User.query.filter_by(username="tenant1").one()
+        provider = User.query.filter_by(username="landlord1").one()
+        profile = tenant.vendor_profile
+        profile.food_registration_number = "PRIVATE-FOOD-001"
+        slot = Slot.query.order_by(Slot.time).first()
+        requirements = build_booking_requirements(
+            electricity_required=True,
+            electricity_details="220V",
+            gas_required=True,
+            gas_details="瓦斯爐一組",
+            equipment_requirements="冷藏設備空間",
+            vehicle_plate="xyz-9876",
+        )
+        qr_code, _ = create_booking_for_slots(
+            tenant.id,
+            [slot.id],
+            requirements=requirements,
+        )
+        original_requirements_id = Booking.query.filter_by(qr_code=qr_code).one().requirements_id
+
+        profile.brand_name = "Renamed Public Brand"
+        profile.contact_phone = "0988777666"
+        db.session.commit()
+
+        unrelated_provider = User(
+            username="unrelated_provider",
+            first_name="Unrelated",
+            last_name="Provider",
+            role="Landlord",
+        )
+        admin = User(
+            username="phase2_admin",
+            first_name="Phase",
+            last_name="Admin",
+            role="Landlord",
+            is_admin=True,
+        )
+        db.session.add_all([unrelated_provider, admin])
+        db.session.commit()
+        profile_id = profile.id
+        provider_id = provider.id
+        unrelated_provider_id = unrelated_provider.id
+        admin_id = admin.id
+
+        booking = Booking.query.filter_by(qr_code=qr_code).one()
+        assert booking.requirements_id == original_requirements_id
+        assert booking.requirements.electricity_details == "220V"
+        assert booking.requirements.gas_details == "瓦斯爐一組"
+        assert booking.requirements.equipment_requirements == "冷藏設備空間"
+        assert booking.requirements.vehicle_plate == "XYZ-9876"
+
+    public_api = client.get(f"/api/v1/vendors/{profile_id}")
+    assert public_api.status_code == 200
+    public_vendor = public_api.get_json()["vendor"]
+    assert public_vendor["brand_name"] == "Renamed Public Brand"
+    for private_field in (
+        "contact_name",
+        "contact_phone",
+        "contact_email",
+        "food_registration_number",
+        "vehicle_plate",
+        "requirements",
+    ):
+        assert private_field not in public_vendor
+
+    public_html = client.get(f"/vendors/{profile_id}/")
+    assert public_html.status_code == 200
+    assert b"Renamed Public Brand" in public_html.data
+    assert b"0988777666" not in public_html.data
+    assert b"tenant1@example.com" not in public_html.data
+    assert b"PRIVATE-FOOD-001" not in public_html.data
+    assert b"XYZ-9876" not in public_html.data
+
+    with client.session_transaction() as session:
+        session["user_id"] = unrelated_provider_id
+    assert client.get(f"/api/v1/bookings/{qr_code}").status_code == 403
+
+    with client.session_transaction() as session:
+        session["user_id"] = provider_id
+    provider_response = client.get(f"/api/v1/bookings/{qr_code}")
+    assert provider_response.status_code == 200
+    provider_payload = provider_response.get_json()
+    assert provider_payload["requirements"]["vehicle_plate"] == "XYZ-9876"
+    assert provider_payload["vendor_private"]["contact_phone"] == "0988777666"
+    assert provider_payload["vendor_private"]["food_registration_number"] == "PRIVATE-FOOD-001"
+
+    with client.session_transaction() as session:
+        session["user_id"] = admin_id
+    assert client.get(f"/api/v1/bookings/{qr_code}").status_code == 200
+
+    with app.app_context():
+        db.session.get(User, admin_id).status = "suspended"
+        db.session.commit()
+    assert client.get(f"/api/v1/bookings/{qr_code}").status_code == 403

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -46,11 +46,11 @@ def register_local_user(
     username = _clean_username(username)
     first_name = _clean_name(first_name, "名字")
     last_name = _clean_name(last_name, "姓氏")
-    phone_number = _clean_phone_number(phone_number)
+    phone_number = _clean_phone_number(phone_number, required=False)
     _validate_password(password)
 
     if _find_user_by_username(username) is not None:
-        raise RegistrationError("此帳號名稱已被使用，請選擇其他帳號。")
+        raise RegistrationError("這個帳號已有人使用，請換一個。")
 
     user = User(
         username=username,
@@ -67,7 +67,7 @@ def register_local_user(
         db.session.commit()
     except IntegrityError as error:
         db.session.rollback()
-        raise RegistrationError("此帳號名稱已被使用，請選擇其他帳號。") from error
+        raise RegistrationError("這個帳號已有人使用，請換一個。") from error
     return user
 
 
@@ -75,7 +75,6 @@ def update_user_profile(
     user: User,
     *,
     nickname: str,
-    birth_date: str,
     first_name: str,
     last_name: str,
     phone_number: str,
@@ -83,11 +82,10 @@ def update_user_profile(
     """Validate and persist the personal details collected after Google login."""
 
     try:
-        user.nickname = _clean_nickname(nickname)
-        user.birth_date = _clean_birth_date(birth_date)
+        user.nickname = _clean_nickname(nickname, required=False)
         user.first_name = _clean_name(first_name, "名字")
         user.last_name = _clean_name(last_name, "姓氏")
-        user.phone_number = _clean_phone_number(phone_number)
+        user.phone_number = _clean_phone_number(phone_number, required=False)
     except RegistrationError as error:
         raise ProfileError(str(error)) from error
 
@@ -138,45 +136,37 @@ def _find_user_by_username(username: str) -> User | None:
 def _clean_username(value: str) -> str:
     username = value.strip() if isinstance(value, str) else ""
     if not 3 <= len(username) <= 50:
-        raise RegistrationError("帳號長度必須介於 3 到 50 個字元。")
+        raise RegistrationError("帳號限 3–50 個字元。")
     if any(character.isspace() for character in username):
-        raise RegistrationError("帳號不能包含空白字元。")
+        raise RegistrationError("帳號不可含空白。")
     return username
 
 
 def _clean_name(value: str, field_label: str) -> str:
     name = " ".join(value.split()) if isinstance(value, str) else ""
     if not 1 <= len(name) <= 50:
-        raise RegistrationError(f"{field_label}必須介於 1 到 50 個字元。")
+        raise RegistrationError(f"{field_label}限 1–50 字。")
     return name
 
 
-def _clean_phone_number(value: str) -> str:
+def _clean_phone_number(value: str, *, required: bool = True) -> str | None:
     phone_number = value.strip() if isinstance(value, str) else ""
+    if not phone_number and not required:
+        return None
     if not _PHONE_PATTERN.fullmatch(phone_number):
-        raise RegistrationError("請輸入有效的聯絡電話。")
+        raise RegistrationError("聯絡電話格式不正確。")
     return phone_number
 
 
-def _clean_nickname(value: str) -> str:
+def _clean_nickname(value: str, *, required: bool = True) -> str | None:
     nickname = " ".join(value.split()) if isinstance(value, str) else ""
+    if not nickname and not required:
+        return None
     if not 1 <= len(nickname) <= 50:
-        raise RegistrationError("暱稱必須介於 1 到 50 個字元。")
+        raise RegistrationError("暱稱限 1–50 字。")
     return nickname
-
-
-def _clean_birth_date(value: str) -> date:
-    try:
-        birthday = date.fromisoformat(value)
-    except (TypeError, ValueError) as error:
-        raise RegistrationError("請輸入有效的生日。") from error
-
-    today = date.today()
-    if birthday > today or birthday < date(today.year - 120, 1, 1):
-        raise RegistrationError("請輸入有效的生日。")
-    return birthday
 
 
 def _validate_password(value: str) -> None:
     if not isinstance(value, str) or not 8 <= len(value) <= 128:
-        raise RegistrationError("密碼長度必須介於 8 到 128 個字元。")
+        raise RegistrationError("密碼需為 8–128 個字元。")

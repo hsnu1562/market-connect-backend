@@ -49,14 +49,6 @@ def login_required(*roles: str):
             user = get_current_user()
             if user is None:
                 return redirect(url_for("web_auth.account", next=request.full_path.rstrip("?")))
-            if user.needs_profile_completion:
-                return redirect(
-                    url_for(
-                        "web_auth.profile_setup",
-                        role=user.role,
-                        next=request.full_path.rstrip("?"),
-                    )
-                )
             if roles and not any(user.has_role(role) for role in roles):
                 abort(403)
             return view(*args, **kwargs)
@@ -74,14 +66,6 @@ def admin_required(view):
         user = get_current_user()
         if user is None:
             return redirect(url_for("web_auth.account", next=request.full_path.rstrip("?")))
-        if user.needs_profile_completion:
-            return redirect(
-                url_for(
-                    "web_auth.profile_setup",
-                    role=user.role,
-                    next=request.full_path.rstrip("?"),
-                )
-            )
         if not user.is_admin or user.status != "active":
             abort(403)
         return view(*args, **kwargs)

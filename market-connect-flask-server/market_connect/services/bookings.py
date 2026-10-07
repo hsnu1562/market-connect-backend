@@ -1,22 +1,99 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
+from flask import current_app
 from sqlalchemy.exc import IntegrityError
 
 from ..extensions import db
-from ..models import Booking, Slot, Stall, User
+from ..models import (
+    ACTIVE_RESERVATION_STATUSES,
+    PAYMENT_FAILED,
+    PAYMENT_PENDING,
+    PAYMENT_PROCESSING,
+    RESERVATION_EXPIRED,
+    RESERVATION_HELD,
+    Booking,
+    BookingRequirements,
+    PaymentTransaction,
+    Slot,
+    Stall,
+    User,
+)
 
 
 class BookingSelectionError(ValueError):
     """Raised when requested slots violate availability or the stall policy."""
 
 
-class PaymentMethodError(ValueError):
-    """Raised when checkout requests an unsupported payment method."""
+class VendorProfileRequiredError(BookingSelectionError):
+    """Raised when a booking account has no marketplace Vendor identity."""
 
 
-ONLINE_PAYMENT_METHOD = "Credit Card"
+def utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def hold_is_expired(booking: Booking, now: datetime | None = None) -> bool:
+    if booking.hold_expires_at is None:
+        return False
+    return as_utc(booking.hold_expires_at) <= as_utc(now or utc_now())
+
+
+def exclude_active_reservations(query):
+    """Restrict a Slot query to inventory not held or confirmed."""
+
+    return query.filter(
+        ~Slot.bookings.any(Booking.reservation_status.in_(ACTIVE_RESERVATION_STATUSES))
+    )
+
+
+def expire_held_bookings(now: datetime | None = None, *, commit: bool = True) -> int:
+    """Expire overdue holds on demand without deleting their audit history."""
+
+    current_time = as_utc(now or utc_now())
+    expired = (
+        Booking.query.filter(
+            Booking.reservation_status == RESERVATION_HELD,
+            Booking.hold_expires_at.is_not(None),
+            Booking.hold_expires_at <= current_time,
+        )
+        .order_by(Booking.id)
+        .with_for_update()
+        .all()
+    )
+    if not expired:
+        return 0
+
+    payment_ids = {booking.payment_id for booking in expired if booking.payment_id is not None}
+    payments = []
+    if payment_ids:
+        payments = (
+            PaymentTransaction.query.filter(PaymentTransaction.id.in_(payment_ids))
+            .order_by(PaymentTransaction.id)
+            .with_for_update()
+            .all()
+        )
+
+    for booking in expired:
+        booking.reservation_status = RESERVATION_EXPIRED
+    for payment in payments:
+        if payment.status in {PAYMENT_PENDING, PAYMENT_PROCESSING}:
+            payment.status = PAYMENT_FAILED
+            payment.failure_reason = "hold_expired"
+
+    if commit:
+        db.session.commit()
+    else:
+        db.session.flush()
+    return len(expired)
 
 
 def filter_bookable_slots(stall: Stall, slots: list[Slot]) -> list[Slot]:
@@ -50,10 +127,20 @@ def filter_bookable_slots(stall: Stall, slots: list[Slot]) -> list[Slot]:
     return [slot for slot in slots if slot.id in bookable_ids]
 
 
-def create_booking_for_slots(user_id: int, slot_ids: list[int]) -> tuple[str | None, int]:
+def create_booking_for_slots(
+    user_id: int,
+    slot_ids: list[int],
+    *,
+    requirements: BookingRequirements | None = None,
+    now: datetime | None = None,
+) -> tuple[str | None, int]:
     user = db.session.get(User, user_id)
     if user is None or not slot_ids:
         return None, 0
+    if not user.has_role("Tenant"):
+        raise BookingSelectionError("此帳戶尚未啟用攤商功能。")
+    if user.vendor_profile is None:
+        raise VendorProfileRequiredError("預約前請先建立攤商品牌資料。")
 
     try:
         normalized_slot_ids = [int(slot_id) for slot_id in slot_ids]
@@ -62,6 +149,8 @@ def create_booking_for_slots(user_id: int, slot_ids: list[int]) -> tuple[str | N
     if len(set(normalized_slot_ids)) != len(normalized_slot_ids):
         raise BookingSelectionError("請勿重複選擇同一個時段。")
 
+    current_time = as_utc(now or utc_now())
+    expire_held_bookings(current_time)
     slots = (
         Slot.query.filter(Slot.id.in_(normalized_slot_ids))
         .with_for_update()
@@ -69,14 +158,44 @@ def create_booking_for_slots(user_id: int, slot_ids: list[int]) -> tuple[str | N
     )
     if len(slots) != len(normalized_slot_ids):
         raise BookingSelectionError("部分時段不存在，請重新選擇。")
-    if Booking.query.filter(Booking.slot_id.in_(normalized_slot_ids)).first() is not None:
+    if Booking.query.filter(
+        Booking.slot_id.in_(normalized_slot_ids),
+        Booking.reservation_status.in_(ACTIVE_RESERVATION_STATUSES),
+    ).first() is not None:
         raise BookingSelectionError("部分時段已被預約，請重新選擇。")
 
     _validate_booking_policy(slots)
 
+    try:
+        hold_seconds = int(current_app.config["BOOKING_HOLD_SECONDS"])
+    except (KeyError, TypeError, ValueError):
+        raise RuntimeError("BOOKING_HOLD_SECONDS must be a positive integer.") from None
+    if hold_seconds <= 0:
+        raise RuntimeError("BOOKING_HOLD_SECONDS must be a positive integer.")
+
     qr_code = str(uuid.uuid4())[:8].upper()
+    payment = PaymentTransaction(
+        merchant_order_id=f"SPC-{uuid.uuid4().hex.upper()}",
+        amount=sum(slot.price for slot in slots),
+        currency="TWD",
+        status=PAYMENT_PENDING,
+    )
+    db.session.add(payment)
+    requirements_snapshot = requirements or BookingRequirements()
+    db.session.add(requirements_snapshot)
+    hold_expires_at = current_time + timedelta(seconds=hold_seconds)
     for slot in slots:
-        db.session.add(Booking(user=user, slot=slot, qr_code=qr_code, payment_status="Unpaid"))
+        db.session.add(
+            Booking(
+                user=user,
+                slot=slot,
+                payment=payment,
+                requirements=requirements_snapshot,
+                qr_code=qr_code,
+                reservation_status=RESERVATION_HELD,
+                hold_expires_at=hold_expires_at,
+            )
+        )
 
     try:
         db.session.commit()
@@ -102,9 +221,9 @@ def _validate_booking_policy(slots: list[Slot]) -> None:
         return
 
     if stall.booking_mode != "hourly":
-        raise BookingSelectionError("此攤位的出租方式設定無效，請聯絡場地主。")
+        raise BookingSelectionError("此攤位的出租方式設定無效，請聯絡供應方。")
     if any(slot.duration_hours != 1 for slot in slots):
-        raise BookingSelectionError("按小時出租的時段資料無效，請聯絡場地主。")
+        raise BookingSelectionError("按小時出租的時段資料無效，請聯絡供應方。")
 
     minimum_hours = stall.minimum_booking_hours
     if minimum_hours not in {1, 2, 3}:
@@ -115,18 +234,3 @@ def _validate_booking_policy(slots: list[Slot]) -> None:
     hours = sorted(slot.time for slot in slots)
     if any(current != previous + 1 for previous, current in zip(hours, hours[1:])):
         raise BookingSelectionError("所選時段必須連續，不能跳過中間時段。")
-
-
-def apply_payment_to_qr(qr_code: str, payment_method: str) -> bool:
-    if payment_method != ONLINE_PAYMENT_METHOD:
-        raise PaymentMethodError("目前只接受線上信用卡付款。")
-
-    bookings = Booking.query.filter_by(qr_code=qr_code).all()
-    if not bookings:
-        return False
-
-    for booking in bookings:
-        booking.payment_status = "Paid"
-        booking.payment_method = ONLINE_PAYMENT_METHOD
-    db.session.commit()
-    return True

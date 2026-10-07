@@ -11,7 +11,7 @@
             --bg-paper: #fcfaf2; /* 復古再生紙色 */
             --text-charcoal: #161616; 
             --border-line: #161616;
-            --tenant-accent: #4a617c; /* 租客端古董灰藍 */
+            --tenant-accent: #4a617c; /* 攤商端古董灰藍 */
         }
         body { font-family: 'Noto Sans TC', sans-serif; background: var(--bg-paper); margin: 0; color: var(--text-charcoal); }
 
@@ -55,6 +55,13 @@
         .slot-table { width: 100%; border-collapse: collapse; border: 2px solid var(--border-line); }
         th { background: var(--text-charcoal); color: var(--bg-paper); padding: 15px; text-align: left; }
         td { padding: 15px; border-bottom: 1px solid #eee; }
+        .requirements { margin-top: 34px; padding: 24px; border: 1px solid var(--border-line); background: #faf7ed; }
+        .requirements legend { padding: 0 8px; font-weight: 900; }
+        .requirements-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .requirements label { display: block; margin-bottom: 6px; font-weight: 700; }
+        .requirements input[type="text"], .requirements textarea { width: 100%; padding: 10px; border: 1px solid var(--border-line); box-sizing: border-box; font: inherit; }
+        .requirements textarea { min-height: 88px; resize: vertical; }
+        .requirement-toggle { display: flex !important; gap: 8px; align-items: center; margin: 12px 0 !important; }
 
         .booking-summary-bar {
             display: flex; justify-content: space-between; align-items: center;
@@ -77,6 +84,7 @@
             .slot-table { display: block; overflow-x: auto; }
             .booking-summary-bar { align-items: stretch; flex-direction: column; gap: 20px; padding: 22px; }
             .submit-btn { width: 100%; }
+            .requirements-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -85,7 +93,7 @@
     {% include '_member_nav.html' %}
 
     <div class="container">
-        <h2>預約您的攤位</h2>
+        <h2>預約攤位</h2>
 
         {% if stall.photos %}
             <div class="stall-gallery" aria-label="{{ stall.loc_name }} 攤位照片">
@@ -96,20 +104,20 @@
         {% endif %}
         
         <div class="stall-info">
-            <div><span class="info-label">攤位:</span><strong>{{ stall.loc_name }}</strong></div>
-            <div><span class="info-label">地址:</span>{{ stall.city }}{{ stall.district }}{{ stall.road }}{{ stall.address_detail }}</div>
-            <div><span class="info-label">場地:</span>{% if stall.environment_type == 'indoor' %}室內{% elif stall.environment_type == 'outdoor' %}戶外{% elif stall.environment_type == 'mixed' %}室內與戶外{% else %}未標示{% endif %}</div>
-            <div><span class="info-label">租客:</span>{{ tenant.first_name }} {{ tenant.last_name }}</div>
+            <div><span class="info-label">攤位：</span><strong>{{ stall.loc_name }}</strong></div>
+            <div><span class="info-label">地址：</span>{{ stall.city }}{{ stall.district }}{{ stall.road }}{{ stall.address_detail }}</div>
+            <div><span class="info-label">場地：</span>{% if stall.environment_type == 'indoor' %}室內{% elif stall.environment_type == 'outdoor' %}戶外{% elif stall.environment_type == 'mixed' %}室內與戶外{% else %}未標示{% endif %}</div>
+            <div><span class="info-label">預約品牌：</span><a href="{{ url_for('web_vendors.public_profile', profile_id=tenant.vendor_profile.id) }}">{{ tenant.vendor_profile.brand_name }}</a></div>
         </div>
 
         <div class="policy-notice">
-            <strong>✓ 此場地已通過 SPACIS 人工認證</strong><br>
+            <strong>✓ 出租資格已審核</strong><br>
             {% if stall.booking_mode == 'daily' %}
                 <strong>整日出租・不可拆分</strong><br>
-                每個選項是一個完整開放時段，顯示價格就是該時段的固定總價。
+                價格為所選時段的總價。
             {% else %}
                 <strong>按小時出租・至少 {{ stall.minimum_booking_hours }} 小時</strong><br>
-                請選擇同一天的連續時段。預估總額為所選小時價格的合計。
+                限同一天的連續時段，總額依所選時數計算。
             {% endif %}
         </div>
 
@@ -119,7 +127,7 @@
             {% endif %}
         {% endwith %}
 
-        <h3>🗓️ 選擇檔期</h3>
+        <h3>選擇時段</h3>
         
         {% if slots %}
             <form action="/make_booking/" method="POST" id="booking-form">
@@ -139,23 +147,48 @@
                             <td><input type="{% if stall.booking_mode == 'daily' %}radio{% else %}checkbox{% endif %}" name="slot_ids" value="{{ slot.id }}" data-price="{{ slot.price }}" data-date="{{ slot.date|date('Y-m-d') }}" data-time="{{ slot.time }}" data-duration="{{ slot.duration_hours }}" class="slot-checkbox"></td>
                             <td><strong>{{ slot.date }}</strong></td>
                             <td>{{ slot.time }}:00 - {{ slot.time + slot.duration_hours }}:00</td>
-                            <td>${{ slot.price }} {% if stall.booking_mode == 'daily' %}/完整時段{% else %}/hr{% endif %}</td>
+                            <td>${{ slot.price }} {% if stall.booking_mode == 'daily' %}/完整時段{% else %}/小時{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+
+                <fieldset class="requirements">
+                    <legend>本次出攤需求（不公開）</legend>
+                    <p>僅供本次預約的場地方與授權管理員查看，送出後會保留在預約紀錄中。</p>
+                    <div class="requirements-grid">
+                        <div>
+                            <label class="requirement-toggle"><input type="checkbox" name="electricity_required" value="yes" id="electricity-required"> 需要電力</label>
+                            <label for="electricity-details">電力需求與瓦數</label>
+                            <input type="text" id="electricity-details" name="electricity_details" maxlength="255" disabled>
+                        </div>
+                        <div>
+                            <label class="requirement-toggle"><input type="checkbox" name="gas_required" value="yes" id="gas-required"> 需要使用瓦斯</label>
+                            <label for="gas-details">瓦斯需求說明</label>
+                            <input type="text" id="gas-details" name="gas_details" maxlength="255" disabled>
+                        </div>
+                        <div>
+                            <label for="equipment-requirements">設備需求</label>
+                            <textarea id="equipment-requirements" name="equipment_requirements" maxlength="1000"></textarea>
+                        </div>
+                        <div>
+                            <label for="vehicle-plate">進場車牌</label>
+                            <input type="text" id="vehicle-plate" name="vehicle_plate" maxlength="20" autocomplete="off">
+                        </div>
+                    </div>
+                </fieldset>
 
                 <div class="booking-summary-bar">
                     <div>
                         <div style="font-size: 0.9rem; color: #666;">預估總額</div>
                         <div id="total-price" style="font-size: 1.8rem; font-weight: 900;">$0</div>
                     </div>
-                    <button type="submit" class="submit-btn" id="submit-btn" disabled>確認預約並付款</button>
+                    <button type="submit" class="submit-btn" id="submit-btn" disabled>送出預約</button>
                 </div>
                 <div id="selection-message" class="selection-message" aria-live="polite"></div>
             </form>
         {% else %}
-            <p>⚠️ 目前暫無可預約時段。</p>
+            <p>目前沒有可預約時段。</p>
         {% endif %}
         
         <a href="/stalls/" class="back-link">← 返回攤位列表</a>
@@ -168,6 +201,21 @@
     const selectionMessage = document.getElementById('selection-message');
     const bookingMode = '{{ stall.booking_mode }}';
     const minimumHours = {{ stall.minimum_booking_hours }};
+    const electricityRequired = document.getElementById('electricity-required');
+    const electricityDetails = document.getElementById('electricity-details');
+    const gasRequired = document.getElementById('gas-required');
+    const gasDetails = document.getElementById('gas-details');
+
+    function syncRequirementDetails(toggle, details) {
+        details.disabled = !toggle.checked;
+        if (!toggle.checked) details.value = '';
+    }
+    if (electricityRequired && electricityDetails) {
+        electricityRequired.addEventListener('change', () => syncRequirementDetails(electricityRequired, electricityDetails));
+    }
+    if (gasRequired && gasDetails) {
+        gasRequired.addEventListener('change', () => syncRequirementDetails(gasRequired, gasDetails));
+    }
 
     if (submitBtn) {
     function validateSelection() {
@@ -176,7 +224,7 @@
         let message = '';
 
         if (selected.length === 0) {
-            message = '請先選擇預約時段。';
+            message = '請選擇預約時段。';
         } else if (bookingMode === 'hourly') {
             const dates = new Set(selected.map(input => input.dataset.date));
             const hours = selected.map(input => parseInt(input.dataset.time)).sort((a, b) => a - b);
@@ -184,9 +232,9 @@
             if (dates.size !== 1) {
                 message = '一次只能預約同一天的時段。';
             } else if (!isConsecutive) {
-                message = '請選擇連續時段，不能跳過中間時段。';
+                message = '請選擇連續時段。';
             } else if (selected.length < minimumHours) {
-                message = `此攤位每次至少需要預約 ${minimumHours} 小時。`;
+                message = `每次至少預約 ${minimumHours} 小時。`;
             }
         } else if (selected.length !== 1) {
             message = '整日方案一次只能選擇一個完整時段。';

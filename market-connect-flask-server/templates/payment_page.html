@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SPACIS | 預約結帳單</title>
+    <title>SPACIS | 預約明細</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
     <style>
@@ -44,10 +44,9 @@
 
         .ok-btn {
             width: 100%; padding: 20px; background: var(--text-charcoal); color: white;
-            border: none; font-weight: 900; font-size: 1.2rem; cursor: pointer;
-            transition: 0.3s;
+            border: none; font-weight: 900; font-size: 1.2rem;
         }
-        .ok-btn:hover { background: var(--tenant-accent); }
+        .ok-btn:disabled { background: #777; cursor: not-allowed; }
 
         @media (max-width: 620px) {
             .payment-container { width: calc(100% - 28px); margin: 28px auto; padding: 28px 18px; }
@@ -62,35 +61,35 @@
 
 <div class="payment-container">
     <div class="payment-header">
-        <h2>結帳單 (Invoice)</h2>
+        <h2>預約明細</h2>
     </div>
 
     <div class="summary-card">
-        <div style="font-weight: 700; margin-bottom: 15px;">📝 訂單編號: {{ qr_code }}</div>
-        <div class="summary-row"><span>租借攤位</span> <strong>{{ stall.loc_name }}</strong></div>
+        <div style="font-weight: 700; margin-bottom: 15px;">預約編號：{{ qr_code }}</div>
+        <div class="summary-row"><span>攤位</span> <strong>{{ stall.loc_name }}</strong></div>
         <div class="summary-row total-row"><span>總計</span> <span>${{ total_price }}</span></div>
     </div>
 
-    <form action="/process_payment/" method="POST">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="qr_code" value="{{ qr_code }}">
-        
-        <div class="payment-methods-grid">
-            <div class="method-card selected">
-                <div style="font-size: 2rem;">💳</div>
-                <div><strong>線上信用卡付款</strong></div>
-                <small>目前唯一支援的付款方式</small>
-            </div>
+    <div class="payment-methods-grid">
+        <div class="method-card">
+            <div style="font-size: 2rem;">💳</div>
+            <div><strong>目前無法線上付款</strong></div>
         </div>
+    </div>
 
+    {% if reservation_status == 'HELD' %}
         <div class="gateway-notice" role="note">
-            <strong>MVP 測試付款流程</strong><br>
-            尚未串接正式金流，因此本頁不會要求或傳送真實卡號。按下確認後只會在 SPACIS 測試系統內將訂單標記為已付款；正式上線前必須接入合規金流服務。
+            <strong>時段已暫時保留，但尚未完成付款或確認。</strong><br>
+            保留期限（UTC）：{{ hold_expires_at|date("Y-m-d H:i") }}。期限過後系統會重新釋出時段。SPACIS 不會要求您在此頁輸入卡號，也不會在金流服務驗證前將預約標記為成功。
         </div>
+    {% else %}
+        <div class="gateway-notice" role="alert">
+            <strong>保留已到期。</strong><br>
+            時段已重新開放，請重新選擇。
+        </div>
+    {% endif %}
 
-        <input type="hidden" name="payment_method" value="{{ online_payment_method }}">
-        <button type="submit" class="ok-btn">確認線上付款（MVP）</button>
-    </form>
+    <button type="button" class="ok-btn" disabled>暫不開放付款</button>
 </div>
 </body>
 </html>

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SPACIS | 房東中控大廳</title>
+    <title>SPACIS | 場地管理</title>
     <!-- 引入 Miranda 網站靈魂：古典優雅的襯線字體 Playfair Display -->
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
@@ -189,8 +189,8 @@
         
         <!-- 💡 報紙頭版引言風 Header -->
         <div class="hub-header">
-            <h1 class="hub-title">Landlord Station</h1>
-            <div class="hub-subtitle">攤主 <span>{{ user.display_name }}</span>，歡迎回到首頁</div>
+            <h1 class="hub-title">場地管理</h1>
+            <div class="hub-subtitle"><span>{{ user.display_name }}</span></div>
         </div>
         
         <!-- 💡 雙欄實線幾何大網格區塊 -->
@@ -200,20 +200,20 @@
             <div class="portal-card">
                 <div style="width: 100%;">
                     <div class="card-icon">🏗️</div>
-                    <h3>Publish Stall</h3>
-                    <p class="card-desc">建立場地資料、提交出租資格證明，通過人工審核後再公開接受預約。</p>
+                    <h3>刊登攤位</h3>
+                    <p class="card-desc">填寫場地資料並送審；通過後開放預約。</p>
                 </div>
-                <a href="/landlord/{{ user.id }}/" class="btn-portal btn-publish">發佈新攤位</a>
+                <a href="/landlord/{{ user.id }}/" class="btn-portal btn-publish">刊登攤位</a>
             </div>
 
             <!-- 右卡片：管理歷史紀錄 (對應原始 history 路由) -->
             <div class="portal-card">
                 <div style="width: 100%;">
                     <div class="card-icon">📊</div>
-                    <h3>Management</h3>
-                    <p class="card-desc">追蹤場地認證狀態、查看預約與租金收益，並管理租客信譽評價。</p>
+                    <h3>攤位與預約</h3>
+                    <p class="card-desc">查看審核、預約、收益與評價。</p>
                 </div>
-                <a href="/landlord/history/{{ user.id }}/" class="btn-portal btn-manage">管理歷史與評價</a>
+                <a href="/landlord/history/{{ user.id }}/" class="btn-portal btn-manage">管理攤位與預約</a>
             </div>
 
         </div>

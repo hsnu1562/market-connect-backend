@@ -4,16 +4,20 @@ SPACIS uses Google OpenID Connect (OIDC) as its production login method. Stall
 information is public. Authentication is required only when a visitor reserves
 a stall, publishes a stall, or opens account-owned records.
 
-After the first successful Google callback, the user must complete a profile
-sheet before entering protected tools. Nickname, birthday, first and last
-names, and telephone are required. The nickname is public. Birthday and
-telephone remain private account/contact data. Telephone is unverified and is
-never accepted as a login method.
+After the first successful Google callback, the user enters the requested page
+immediately. Browsing, search, and role dashboards do not require a completed
+personal profile. The optional account sheet supports name, nickname, and
+telephone edits; it does not collect birthday.
+
+Booking is an action-specific gate. An account using the Vendor capability
+must create the minimum brand-oriented Vendor profile before reaching the
+booking form. The original booking URL is carried through profile setup so the
+user can continue without a redirect loop.
 
 One user can hold both roles:
 
-- `Tenant`: reserve stalls and manage bookings.
-- `Landlord`: publish stalls and manage received bookings.
+- `Tenant`: internal legacy value for Vendor / 攤商 booking capabilities.
+- `Landlord`: internal legacy value for Provider / 供應方 publishing capabilities.
 
 Choosing a role-specific login entry grants that role after successful
 authentication. It does not create a second user.
@@ -25,12 +29,14 @@ market_connect/
   web/auth.py                 Google, profile, and optional local browser routes
   services/accounts.py       profile validation and role membership
   services/identities.py     external identity find-or-create transaction
+  services/vendor_profiles.py Vendor profile validation and persistence
   security.py                session, CSRF, and authorization helpers
-  models.py                  User, UserRole, and AuthIdentity
+  models.py                  User, UserRole, AuthIdentity, and VendorProfile
   extensions.py              SQLAlchemy, Flask-Migrate, and Authlib
 migrations/                  tracked Alembic migrations
 templates/account.html       Google-only role-aware account entry
-templates/profile_setup.html first-login and profile editing sheet
+templates/profile_setup.html optional personal account editing sheet
+templates/vendor_profile_setup.html action-specific Vendor profile sheet
 ```
 
 The sibling `market-connect-api` checkout is the frozen FastAPI documentation
@@ -38,12 +44,14 @@ service. Do not implement Flask authentication there.
 
 ## Routes
 
-- `GET /account/`: select or activate tenant/provider tools.
+- `GET /account/`: select or activate Vendor/Provider tools.
 - `GET, POST /register/<role>`: optional local development registration; disabled by default.
 - `GET, POST /login/<role>`: optional local development login; disabled by default.
 - `GET /auth/google/login?role=<role>`: begin Google authorization.
 - `GET /auth/google/callback`: validate OIDC identity and create the session.
-- `GET, POST /account/profile`: complete or edit the SPACIS profile.
+- `GET, POST /account/profile`: optionally edit personal account fields.
+- `GET, POST /vendor/profile/`: create or edit the booking-required Vendor profile.
+- `GET /vendors/<profile_id>/`: public, brand-only Vendor profile.
 - `POST /account/roles/<role>`: add a second role to a signed-in account.
 - `POST /logout`: clear the SPACIS session.
 
@@ -51,13 +59,19 @@ Google logout does not sign the user out of Google globally.
 
 ## Identity Data
 
-`user` stores the SPACIS profile, including public `nickname`, private
-`birth_date`, and contact `phone_number`. `profile_completed_at` is null until a
-Google user submits every required field. The application also validates the
-fields themselves, so an old timestamp cannot bypass onboarding.
+`user` stores the authenticated SPACIS account and transitional personal
+fields. `birth_date` remains nullable for migration safety, is no longer shown
+or required, and existing values are not deleted. Nickname and telephone are
+optional. `profile_completed_at` now records whether the optional personal
+sheet was saved; it is not an authorization gate.
 `password_hash` is null for Google-only accounts. The original `role` column
 remains as a primary/legacy role so existing data and templates remain
 compatible.
+
+`vendor_profile` stores the separate marketplace identity. Its required MVP
+fields are brand name, category, contact name, and contact phone. Only brand
+fields are public. Read [VENDOR_PROFILES.md](VENDOR_PROFILES.md) for the field
+and authorization contract.
 
 `user_role` stores all account roles with a composite primary key of
 `(user_id, role)`.
@@ -90,6 +104,7 @@ GOOGLE_CLIENT_SECRET=<Google-web-client-secret>
 GOOGLE_REDIRECT_URI=http://localhost:5001/auth/google/callback
 PUBLIC_BASE_URL=http://localhost:5001
 LOCAL_AUTH_ENABLED=false
+BOOKING_HOLD_SECONDS=900
 ```
 
 `SECRET_KEY` must stay unchanged across restarts because OAuth state is stored
@@ -170,6 +185,7 @@ GOOGLE_CLIENT_ID=<Google-web-client-ID>
 GOOGLE_CLIENT_SECRET=<Google-web-client-secret>
 GOOGLE_REDIRECT_URI=https://spacis.onrender.com/auth/google/callback
 PUBLIC_BASE_URL=https://spacis.onrender.com
+BOOKING_HOLD_SECONDS=900
 ```
 
 Render service settings:
@@ -194,8 +210,10 @@ The tracked authentication migrations:
 - creates `user_role` and backfills every existing user's current role;
 - creates `auth_identity` with a provider/subject uniqueness constraint.
 - adds `profile_completed_at` and marks existing non-Google accounts complete.
-- adds nickname and birthday, then reopens onboarding for Google accounts that
-  do not contain every required personal field.
+- historically added nullable nickname and birthday fields. Phase 2 retains
+  stored birthdays but removes them from onboarding and all access checks.
+- adds an optional one-to-one `vendor_profile` and booking requirement
+  snapshots without fabricating brands for existing users.
 
 Run `init-db` before `db upgrade` during this transitional migration. The
 tracked migration handles both the existing PostgreSQL schema and a fresh local
@@ -220,10 +238,10 @@ depend on Google connectivity.
 - Only verified identities containing `sub`, `email`, and
   `email_verified=true` are accepted.
 - Sessions contain only the internal `user_id` plus Flask's permanence marker.
-- Incomplete Google profiles are redirected to `/account/profile` before any
-  protected tenant or provider workflow.
-- Telephone numbers are required contact data but are not verified identities
-  and cannot be used to authenticate.
+- Personal profile completion never blocks browsing or role dashboards.
+- A Vendor profile is required only at booking entry and booking creation.
+- Personal telephone is optional. Vendor transaction contact telephone is
+  required but is not a verified identity and cannot be used to authenticate.
 - Internal `google_*` usernames are database identifiers only. Browser pages
   display the chosen nickname and link it to `/account/profile`.
 - Role membership never bypasses booking or stall ownership checks.

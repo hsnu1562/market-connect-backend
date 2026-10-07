@@ -4,13 +4,13 @@ if (authDialog) {
     const authRoutes = {
         Tenant: {
             google: authDialog.dataset.tenantGoogle,
-            title: "登入後預約",
-            copy: "攤位資訊保持公開；送出預約時才需要帳戶。",
+            title: "預約攤位",
+            copy: "使用 Google 登入後繼續。",
         },
         Landlord: {
             google: authDialog.dataset.landlordGoogle,
-            title: "登入後刊登攤位",
-            copy: "瀏覽不需登入；建立攤位與出租時段時才需要帳戶。",
+            title: "刊登攤位",
+            copy: "使用 Google 登入後繼續。",
         },
     };
 

@@ -180,37 +180,39 @@
 </head>
 <body>
 
+    {% set role_label = '場地方' if role == 'Landlord' else '攤商' %}
+
     <!-- 💡 標題與結構完全不動，改用古典斜體字形 -->
-    <h1 class="login-title">SPACIS Login</h1>
+    <h1 class="login-title">登入 SPACIS</h1>
     
     <div class="login-box">
         <!-- Django 錯誤訊息防呆 -->
         {% if error %}
-            <div class="error-msg">⚠️ {{ error }}</div>
+            <div class="error-msg">{{ error }}</div>
         {% endif %}
 
         <form method="POST">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             
             <div class="form-group">
-                <label>Username / 帳號</label>
-                <input type="text" name="username" class="form-control" value="{{ form_data.username }}" placeholder="請輸入您的帳號" autocomplete="username" required>
+                <label>帳號</label>
+                <input type="text" name="username" class="form-control" value="{{ form_data.username }}" placeholder="輸入帳號" autocomplete="username" required>
             </div>
             
             <div class="form-group">
-                <label>Password / 密碼</label>
-                <input type="password" name="pw" class="form-control" placeholder="請輸入您的密碼" autocomplete="current-password" required>
+                <label>密碼</label>
+                <input type="password" name="pw" class="form-control" placeholder="輸入密碼" autocomplete="current-password" required>
             </div>
             
-            <button type="submit" class="btn-submit">確認登入</button>
+            <button type="submit" class="btn-submit">登入</button>
         </form>
 
         <div class="divider">或</div>
-        <a class="google-login" href="{{ url_for('web_auth.google_login', role=role, next=next_url) }}"><span>G</span>使用 Google 帳號繼續</a>
+        <a class="google-login" href="{{ url_for('web_auth.google_login', role=role, next=next_url) }}"><span>G</span>使用 Google 登入</a>
 
-        <p class="account-link">還沒有帳戶？ <a href="{{ url_for('web_auth.register', role=role, next=next_url) }}">建立 {{ role }} 帳戶</a></p>
-        <a href="{{ url_for('web_auth.account', next=next_url) }}" class="back-link">選擇其他帳戶類型</a>
-        <a href="{{ url_for('web_auth.index') }}" class="back-link">返回主首頁</a>
+        <p class="account-link">還沒有帳戶？ <a href="{{ url_for('web_auth.register', role=role, next=next_url) }}">建立 {{ role_label }} 帳戶</a></p>
+        <a href="{{ url_for('web_auth.account', next=next_url) }}" class="back-link">切換使用方式</a>
+        <a href="{{ url_for('web_auth.index') }}" class="back-link">回到首頁</a>
     </div>
 
 </body>

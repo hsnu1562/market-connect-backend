@@ -1,7 +1,13 @@
 from __future__ import annotations
 
 from ..extensions import db
-from ..models import Booking, Review, User, recalculate_reputation
+from ..models import (
+    RESERVATION_CONFIRMED,
+    Booking,
+    Review,
+    User,
+    recalculate_reputation,
+)
 
 
 def create_review_for_booking(
@@ -14,6 +20,8 @@ def create_review_for_booking(
     booking = db.session.get(Booking, booking_id)
     reviewer = db.session.get(User, reviewer_id)
     if booking is None or reviewer is None:
+        return False
+    if booking.reservation_status != RESERVATION_CONFIRMED:
         return False
     if user_role is None or not reviewer.has_role(user_role) or not 1 <= rating <= 5:
         return False

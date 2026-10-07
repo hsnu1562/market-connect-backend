@@ -7,6 +7,7 @@ from .auth import bp as auth_bp
 from .landlord import bp as landlord_bp
 from .reviews import bp as reviews_bp
 from .stalls import bp as stalls_bp
+from .vendors import bp as vendors_bp
 
 
 def register_web_blueprints(app: Flask) -> None:
@@ -15,3 +16,4 @@ def register_web_blueprints(app: Flask) -> None:
     app.register_blueprint(landlord_bp)
     app.register_blueprint(stalls_bp)
     app.register_blueprint(reviews_bp)
+    app.register_blueprint(vendors_bp)

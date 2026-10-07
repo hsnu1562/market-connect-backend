@@ -18,7 +18,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 
 from ..extensions import db, oauth
-from ..models import Booking, Slot, Stall, User
+from ..models import Slot, Stall, User
 from ..security import (
     get_current_user,
     login_required,
@@ -35,7 +35,11 @@ from ..services.accounts import (
     register_local_user,
     update_user_profile,
 )
-from ..services.bookings import filter_bookable_slots
+from ..services.bookings import (
+    exclude_active_reservations,
+    expire_held_bookings,
+    filter_bookable_slots,
+)
 from ..services.identities import IdentityError, find_or_create_google_user
 
 
@@ -46,10 +50,12 @@ _OAUTH_NEXT_KEY = "_oauth_next_url"
 
 @bp.route("/")
 def index():
+    expire_held_bookings()
     available_slots = (
-        Slot.query.options(joinedload(Slot.stall).joinedload(Stall.owner))
-        .outerjoin(Booking)
-        .filter(Booking.id.is_(None), Slot.date >= date.today())
+        exclude_active_reservations(
+            Slot.query.options(joinedload(Slot.stall).joinedload(Stall.owner))
+        )
+        .filter(Slot.date >= date.today())
         .order_by(Slot.date, Slot.time, Slot.stall_id)
         .all()
     )
@@ -81,7 +87,7 @@ def index():
         slots = listing["slots"]
         listing["next_date"] = slots[0].date
         listing["min_price"] = min(slot.price for slot in slots)
-        listing["price_unit"] = "day" if listing["stall"].booking_mode == "daily" else "hr"
+        listing["price_unit"] = "整日" if listing["stall"].booking_mode == "daily" else "小時"
         listing["price_label"] = (
             "整日時段起" if listing["stall"].booking_mode == "daily" else "每小時起"
         )
@@ -101,7 +107,7 @@ def index():
             if is_tenant
             else url_for("web_auth.account", intent="tenant", next=booking_url)
         )
-        listing["action_label"] = "查看時段" if is_tenant else "登入後預約"
+        listing["action_label"] = "查看時段"
 
     stats = {
         "stalls": len(listings_by_stall),
@@ -134,14 +140,6 @@ def account():
     intent = request.args.get("intent", "").lower()
     if intent not in {"", "tenant", "landlord"}:
         intent = ""
-    if current_user is not None and current_user.needs_profile_completion:
-        return redirect(
-            url_for(
-                "web_auth.profile_setup",
-                role=current_user.role,
-                next=safe_next_url(request.args.get("next")) or "",
-            )
-        )
     return render_template(
         "account.html",
         intent=intent,
@@ -220,14 +218,6 @@ def google_callback():
     sign_in(user)
     current_app.logger.info("Google login succeeded for user_id=%s", user.id)
     destination = next_url or _dashboard_url(user, role)
-    if user.needs_profile_completion:
-        return redirect(
-            url_for(
-                "web_auth.profile_setup",
-                role=role,
-                next=destination,
-            )
-        )
     return redirect(destination)
 
 
@@ -254,7 +244,6 @@ def profile_setup():
     )
     form_data = {
         "nickname": user.nickname or "",
-        "birth_date": user.birth_date.isoformat() if user.birth_date else "",
         "first_name": user.first_name or "",
         "last_name": user.last_name or "",
         "phone_number": user.phone_number or "",
@@ -280,7 +269,6 @@ def profile_setup():
         next_url=next_url or "",
         form_data=form_data,
         error=error,
-        is_first_setup=user.needs_profile_completion,
     )
 
 
@@ -348,7 +336,7 @@ def login_view(role: str):
             role=role,
         )
         if user is None:
-            error = "帳號、密碼或帳戶類型錯誤，請重新輸入。"
+            error = "帳號或密碼不正確。"
         else:
             sign_in(user)
             return redirect(next_url or _dashboard_url(user, role))

@@ -10,7 +10,7 @@
             --bg-paper: #fcfaf2; /* 高雅的復古再生紙米白色 */
             --text-charcoal: #161616; /* 高級深炭黑 */
             --border-line: #161616;
-            /* 根據傳入的角色自動調配懸停主題色：攤主為莫蘭迪粉，租客為古董綠 */
+            /* 根據內部角色自動調配懸停主題色。 */
             --accent-color: {% if role == 'Landlord' %}#c96f8a{% else %}#4a7c59{% endif %};
         }
 
@@ -164,9 +164,11 @@
 </head>
 <body>
 
+    {% set role_label = '場地方' if role == 'Landlord' else '攤商' %}
+
     <!-- 💡 標題與副標題完美對接原始 role 變數 -->
-    <h1 class="register-title">SPACIS Join</h1>
-    <div class="register-subtitle">正在建立 <span>{{ role }}</span> 帳戶門戶</div>
+    <h1 class="register-title">建立 SPACIS 帳戶</h1>
+    <div class="register-subtitle">建立 <span>{{ role_label }}</span> 帳戶</div>
     
     <div class="register-box">
         {% if error %}
@@ -176,42 +178,41 @@
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             
             <div class="form-group">
-                <label>Username / 帳號</label>
-                <input type="text" name="username" class="form-control" value="{{ form_data.username }}" placeholder="請設定您的登入帳號" autocomplete="username" minlength="3" maxlength="50" required>
+                <label>帳號</label>
+                <input type="text" name="username" class="form-control" value="{{ form_data.username }}" placeholder="輸入帳號" autocomplete="username" minlength="3" maxlength="50" required>
             </div>
 
             <!-- 💡 將「姓」與「名」包裝成並排的網格，畫面非常俐落有型 -->
             <div class="name-row">
                 <div class="form-group">
-                    <label>First Name / 名字</label>
+                    <label>名字</label>
                     <input type="text" name="fname" class="form-control" value="{{ form_data.fname }}" placeholder="例：小明" autocomplete="given-name" required>
                 </div>
                 <div class="form-group">
-                    <label>Last Name / 姓氏</label>
+                    <label>姓氏</label>
                     <input type="text" name="lname" class="form-control" value="{{ form_data.lname }}" placeholder="例：陳" autocomplete="family-name" required>
                 </div>
             </div>
             
             <div class="form-group">
-                <label>Password / 密碼</label>
-                <input type="password" name="pw" class="form-control" placeholder="請設定密碼 (至少 8 個字元)" autocomplete="new-password" minlength="8" maxlength="128" required>
+                <label>密碼</label>
+                <input type="password" name="pw" class="form-control" placeholder="至少 8 個字元" autocomplete="new-password" minlength="8" maxlength="128" required>
             </div>
 
             <div class="form-group">
-                <label>Phone / 電話號碼</label>
+                <label>電話號碼</label>
                 <input type="text" name="phone" class="form-control" value="{{ form_data.phone }}"
-                        pattern="[0-9]{10}"
-                        inputmode="numeric"
-                        maxlength="10"
-                        placeholder="例：0912345678 (必須為 10 位數字)" required>
+                        inputmode="tel"
+                        maxlength="20"
+                        placeholder="選填；例如 0912345678">
             </div>
             
-            <button type="submit" class="btn-submit">確認註冊並登入</button>
+            <button type="submit" class="btn-submit">註冊並登入</button>
         </form>
 
-        <a href="{{ url_for('web_auth.login_view', role=role, next=next_url) }}" class="back-link">已有帳戶？前往登入</a>
-        <a href="{{ url_for('web_auth.account', next=next_url) }}" class="back-link">選擇其他帳戶類型</a>
-        <a href="{{ url_for('web_auth.index') }}" class="back-link">返回主首頁</a>
+        <a href="{{ url_for('web_auth.login_view', role=role, next=next_url) }}" class="back-link">已有帳戶？登入</a>
+        <a href="{{ url_for('web_auth.account', next=next_url) }}" class="back-link">切換使用方式</a>
+        <a href="{{ url_for('web_auth.index') }}" class="back-link">回到首頁</a>
     </div>
 
 </body>

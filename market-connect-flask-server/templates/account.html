@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SPACIS | 帳戶入口</title>
+    <title>SPACIS | 帳戶</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
     <style>
@@ -177,9 +177,9 @@
     {% include '_member_nav.html' %}
     <div class="account-page">
     <main class="shell">
-        <p class="eyebrow">SPACIS Account</p>
-        <h1>一個 Google 帳戶，兩種使用方式</h1>
-        <p class="intro">攤位資訊可以直接瀏覽；預約或刊登時再登入即可。首次登入後只需補充基本聯絡資料，同一個帳戶也能同時使用租客與出租方功能。</p>
+        <p class="eyebrow">SPACIS 帳戶</p>
+        <h1>選擇使用方式</h1>
+        <p class="intro">同一個帳戶可找攤位，也可刊登攤位。</p>
 
         {% if oauth_error %}
             <div class="error-msg" role="alert">Google 登入失敗，請重新嘗試。</div>
@@ -187,50 +187,50 @@
 
         <section class="account-grid" aria-label="帳戶類型">
             <article class="account-card tenant {% if intent == 'tenant' %}recommended{% endif %}">
-                <p class="role-label">Tenant</p>
+                <p class="role-label">攤商</p>
                 <h2>我要租攤位</h2>
-                <p class="card-copy">比較可租時段、送出預約、查看付款與自己的交易紀錄。</p>
+                <p class="card-copy">找攤位、預約時段、查看預約紀錄。</p>
                 <div class="actions">
                     {% if current_user %}
                         {% if current_user.has_role('Tenant') %}
-                            <a class="button primary" href="{{ url_for('web_auth.tenant_hub', user_id=current_user.id) }}">進入租客工具</a>
+                            <a class="button primary" href="{{ url_for('web_auth.tenant_hub', user_id=current_user.id) }}">前往攤商中心</a>
                         {% else %}
                             <form method="POST" action="{{ url_for('web_auth.activate_role', role='Tenant') }}">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="next" value="{{ next_url }}">
-                                <button class="button primary" type="submit">啟用租客功能</button>
+                                <button class="button primary" type="submit">成為攤商</button>
                             </form>
                         {% endif %}
                     {% else %}
-                        <a class="button primary google" href="{{ url_for('web_auth.google_login', role='Tenant', next=next_url) }}"><span>G</span>使用 Google 登入 / 註冊</a>
+                        <a class="button primary google" href="{{ url_for('web_auth.google_login', role='Tenant', next=next_url) }}"><span>G</span>使用 Google 登入</a>
                         {% if config.LOCAL_AUTH_ENABLED %}
-                            <a class="button" href="{{ url_for('web_auth.login_view', role='Tenant', next=next_url) }}">開發用帳號登入</a>
-                            <a class="button" href="{{ url_for('web_auth.register', role='Tenant', next=next_url) }}">建立開發用帳號</a>
+                            <a class="button" href="{{ url_for('web_auth.login_view', role='Tenant', next=next_url) }}">測試帳號登入</a>
+                            <a class="button" href="{{ url_for('web_auth.register', role='Tenant', next=next_url) }}">建立測試帳號</a>
                         {% endif %}
                     {% endif %}
                 </div>
             </article>
 
             <article class="account-card landlord {% if intent == 'landlord' %}recommended{% endif %}">
-                <p class="role-label">Provider</p>
+                <p class="role-label">場地方</p>
                 <h2>我要出租攤位</h2>
-                <p class="card-copy">建立攤位資訊、設定可出租時段，並管理已成立的預約。</p>
+                <p class="card-copy">刊登攤位、設定出租時段、管理預約。</p>
                 <div class="actions">
                     {% if current_user %}
                         {% if current_user.has_role('Landlord') %}
-                            <a class="button primary" href="{{ url_for('web_auth.landlord_hub', user_id=current_user.id) }}">進入出租方工具</a>
+                            <a class="button primary" href="{{ url_for('web_auth.landlord_hub', user_id=current_user.id) }}">前往場地管理</a>
                         {% else %}
                             <form method="POST" action="{{ url_for('web_auth.activate_role', role='Landlord') }}">
                                 <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="next" value="{{ next_url }}">
-                                <button class="button primary" type="submit">啟用出租方功能</button>
+                                <button class="button primary" type="submit">成為場地方</button>
                             </form>
                         {% endif %}
                     {% else %}
-                        <a class="button primary google" href="{{ url_for('web_auth.google_login', role='Landlord', next=next_url) }}"><span>G</span>使用 Google 登入 / 註冊</a>
+                        <a class="button primary google" href="{{ url_for('web_auth.google_login', role='Landlord', next=next_url) }}"><span>G</span>使用 Google 登入</a>
                         {% if config.LOCAL_AUTH_ENABLED %}
-                            <a class="button" href="{{ url_for('web_auth.login_view', role='Landlord', next=next_url) }}">開發用帳號登入</a>
-                            <a class="button" href="{{ url_for('web_auth.register', role='Landlord', next=next_url) }}">建立開發用帳號</a>
+                            <a class="button" href="{{ url_for('web_auth.login_view', role='Landlord', next=next_url) }}">測試帳號登入</a>
+                            <a class="button" href="{{ url_for('web_auth.register', role='Landlord', next=next_url) }}">建立測試帳號</a>
                         {% endif %}
                     {% endif %}
                 </div>
@@ -240,10 +240,9 @@
         {% if current_user %}
             <a class="profile-link" href="{{ url_for('web_auth.profile_setup') }}">編輯個人資料</a>
         {% else %}
-            <p class="signin-note">目前只提供 Google 登入。首次登入必須設定暱稱、生日與聯絡電話。SPACIS 不會儲存 Google 密碼；電話尚未經 OTP 驗證，也不會用於登入。</p>
         {% endif %}
 
-        <a class="return-link" href="{{ url_for('web_auth.index') }}">返回 SPACIS 首頁</a>
+        <a class="return-link" href="{{ url_for('web_auth.index') }}">回到首頁</a>
     </main>
     </div>
 </body>

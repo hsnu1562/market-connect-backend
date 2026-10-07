@@ -6,7 +6,7 @@ from datetime import UTC, date, datetime, timedelta
 from werkzeug.security import generate_password_hash
 
 from ..extensions import db
-from ..models import Slot, Stall, StallCertification, User
+from ..models import Slot, Stall, StallCertification, User, VendorProfile
 from .certification_documents import ValidatedDocument, replace_certification_documents
 
 
@@ -23,7 +23,6 @@ def seed_demo_data() -> None:
         first_name="Landlord",
         last_name="One",
         nickname="Demo Provider",
-        birth_date=date(1990, 1, 1),
         phone_number="0912-000-001",
         role="Landlord",
         profile_completed_at=datetime.now(UTC),
@@ -34,7 +33,6 @@ def seed_demo_data() -> None:
         first_name="Tenant",
         last_name="One",
         nickname="Demo Tenant",
-        birth_date=date(1995, 1, 1),
         phone_number="0912-000-002",
         role="Tenant",
         profile_completed_at=datetime.now(UTC),
@@ -51,6 +49,16 @@ def seed_demo_data() -> None:
     )
     db.session.add_all([landlord, tenant, stall])
     db.session.flush()
+    db.session.add(
+        VendorProfile(
+            user=tenant,
+            brand_name="Demo Market Brand",
+            primary_category="handmade",
+            brand_description="SPACIS development fixture vendor profile.",
+            contact_name="Demo Tenant",
+            contact_phone="0912-000-002",
+        )
+    )
     certification = StallCertification(
         stall=stall,
         applicant_legal_name="Demo Provider",

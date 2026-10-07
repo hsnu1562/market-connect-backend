@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SPACIS | 租客中控大廳</title>
+    <title>SPACIS | 攤商中心</title>
     <!-- 引入 Miranda 網站靈魂：古典優雅的襯線字體 Playfair Display -->
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
@@ -12,7 +12,7 @@
             --bg-paper: #fcfaf2; /* 高雅的復古再生紙米白色 */
             --text-charcoal: #161616; /* 高級深炭黑 */
             --border-line: #161616;
-            --tenant-accent: #4a617c; /* 租客端：專業沈穩的古董灰藍 */
+            --tenant-accent: #4a617c; /* 攤商端：專業沈穩的古董灰藍 */
         }
 
         body {
@@ -167,8 +167,8 @@
     <div class="container">
         
         <div class="hub-header">
-            <h1 class="hub-title">Tenant Station</h1>
-            <div class="hub-subtitle">租客 <span>{{ user.display_name }}</span>，歡迎探索攤位</div>
+            <h1 class="hub-title">攤商中心</h1>
+            <div class="hub-subtitle"><span>{% if user.vendor_profile %}{{ user.vendor_profile.brand_name }}{% else %}{{ user.display_name }}{% endif %}</span></div>
         </div>
         
         <div class="grid-portal">
@@ -177,7 +177,7 @@
                 <div style="width: 100%;">
                     <div class="card-icon">🔍</div>
                     <h3>尋找攤位</h3>
-                    <p class="card-desc">瀏覽全台最新開放的攤位，預約您的時段。</p>
+                    <p class="card-desc">查看可租時段並預約攤位。</p>
                 </div>
                 <a href="/stalls/" class="btn-portal btn-main">瀏覽攤位</a>
             </div>
@@ -185,10 +185,19 @@
             <div class="portal-card">
                 <div style="width: 100%;">
                     <div class="card-icon">📅</div>
-                    <h3>我的預約與訂單</h3>
-                    <p class="card-desc">管理您的租借交易紀錄、查看入場 QR Code，並查看房東給您的信譽評分。</p>
+                    <h3>我的預約</h3>
+                    <p class="card-desc">查看預約、入場 QR 碼與評價。</p>
                 </div>
-                <a href="/my_bookings/{{ user.id }}/" class="btn-portal btn-sub">查看歷史預約</a>
+                <a href="/my_bookings/{{ user.id }}/" class="btn-portal btn-sub">查看預約</a>
+            </div>
+
+            <div class="portal-card">
+                <div style="width: 100%;">
+                    <div class="card-icon">🏷️</div>
+                    <h3>攤商品牌資料</h3>
+                    <p class="card-desc">管理公開品牌資料與預約聯絡方式。預約前需完成。</p>
+                </div>
+                <a href="{{ url_for('web_vendors.profile_setup') }}" class="btn-portal btn-sub">{% if user.vendor_profile %}編輯品牌資料{% else %}建立品牌資料{% endif %}</a>
             </div>
 
         </div>

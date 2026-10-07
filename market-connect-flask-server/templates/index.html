@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="探索近期可租用的市集攤位、空檔與租金。">
-    <title>SPACIS | 找到下一個出攤位置</title>
+    <meta name="description" content="查看近期可租的市集攤位、時段、租金與設備。">
+    <title>SPACIS | 找攤位與刊登攤位</title>
     <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -758,7 +758,7 @@
                         <button type="submit" class="nav-link outline nav-button">登出</button>
                     </form>
                 {% else %}
-                    <a href="{{ account_url }}" class="nav-link outline">登入 / 建立帳戶</a>
+                    <a href="{{ account_url }}" class="nav-link outline">登入</a>
                 {% endif %}
             </nav>
             <details class="home-mobile-menu">
@@ -768,13 +768,13 @@
                     <a href="#availability">找攤位</a>
                     <a href="{{ provider_url }}"{% if not current_user %} data-auth-role="Landlord" data-auth-next=""{% endif %}>刊登攤位</a>
                     {% if current_user %}
-                        <a href="{{ account_url }}">{{ current_user.display_name }} / 個人資料</a>
+                        <a href="{{ account_url }}">{{ current_user.display_name }} · 個人資料</a>
                         <form action="{{ url_for('web_auth.logout') }}" method="POST">
                             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
                             <button type="submit">登出</button>
                         </form>
                     {% else %}
-                        <a href="{{ account_url }}">登入 / 建立帳戶</a>
+                        <a href="{{ account_url }}">登入</a>
                     {% endif %}
                 </nav>
             </details>
@@ -784,21 +784,21 @@
     <main>
         <section class="hero" aria-labelledby="hero-title">
             <div class="hero-copy">
-                <p class="eyebrow">Market spaces, made visible</p>
-                <h1 id="hero-title">找到值得<br><em>出攤 </em>的位置。</h1>
+                <p class="eyebrow">攤位媒合與空間預約</p>
+                <h1 id="hero-title">找適合的<br><em>出攤位置</em>。</h1>
                 <p class="hero-lead">
-                    將近期空檔、時段租金與現場設備放在同一個清楚的市場，讓每次出攤都有更好的判斷依據。
+                    比較近期空檔、租金與設備，找到合適的出攤位置。
                 </p>
                 <div class="hero-actions">
-                    <a href="#availability" class="button">查看近期空檔</a>
-                    <a href="{{ provider_url }}" class="button secondary"{% if not current_user %} data-auth-role="Landlord" data-auth-next=""{% endif %}>我有攤位要出租</a>
+                    <a href="#availability" class="button">查看可租攤位</a>
+                    <a href="{{ provider_url }}" class="button secondary"{% if not current_user %} data-auth-role="Landlord" data-auth-next=""{% endif %}>刊登攤位</a>
                 </div>
             </div>
 
             <aside class="market-panel" aria-label="目前市場供應概況">
                 <div class="panel-heading">
-                    <p class="panel-label">Live availability</p>
-                    <h2>近期攤位<br>供應速報</h2>
+                    <p class="panel-label">目前供應</p>
+                    <h2>近期<br>可租攤位</h2>
                 </div>
                 <div class="metric-grid">
                     <div class="metric">
@@ -811,27 +811,27 @@
                     </div>
                     <div class="metric">
                         <strong>{{ stats.cities }}</strong>
-                        <span>供應城市</span>
+                        <span>可租城市</span>
                     </div>
                 </div>
-                <p class="panel-note">資料直接來自已開放且尚未被預約的時段；完成預約後，對應空檔會自動從供應中移除。</p>
+                <p class="panel-note">數字以目前可預約的時段計算。</p>
             </aside>
         </section>
 
         <div class="market-strip" aria-hidden="true">
             <span>近期可租攤位</span>
             <span>小時或整日方案</span>
-            <span>即時空檔</span>
-            <span>可靠合作紀錄</span>
+            <span>可預約時段</span>
+            <span>預約與評價</span>
         </div>
 
         <section class="listings-section" id="availability" aria-labelledby="availability-title">
             <div class="section-heading">
                 <div>
-                    <p class="section-kicker">Available now</p>
-                    <h2 id="availability-title">本期攤位選集</h2>
+                    <p class="section-kicker">近期可租</p>
+                    <h2 id="availability-title">近期可租攤位</h2>
                 </div>
-                <p class="section-description">依最近可租日期排序。價格依場地主設定，提供按小時或整日出租方案。</p>
+                <p class="section-description">依近期可租日期排序，價格由場地方設定。</p>
             </div>
 
             {% if listings %}
@@ -839,21 +839,21 @@
                     {% for listing in listings %}
                         <article class="stall-card{% if loop.first %} lead-card{% endif %}" style="animation-delay: {{ loop.index0 * 70 }}ms;">
                             <div class="card-topline">
-                                <span class="card-number">No. {{ "%02d"|format(loop.index) }}</span>
+                                <span class="card-number">攤位 {{ "%02d"|format(loop.index) }}</span>
                                 <span class="city-tag">{{ listing.stall.city }}</span>
                             </div>
 
                             {% if listing.stall.photos %}
                                 <img class="stall-cover" src="{{ url_for('web_stalls.stall_photo', photo_id=listing.stall.photos[0].id) }}" alt="{{ listing.stall.loc_name }} 攤位照片" loading="lazy" decoding="async">
                             {% else %}
-                                <div class="stall-cover stall-cover--empty" aria-label="此攤位尚無照片">PHOTO PENDING</div>
+                                <div class="stall-cover stall-cover--empty" aria-label="此攤位尚無照片">尚無照片</div>
                             {% endif %}
 
                             <h3 class="stall-name">{{ listing.stall.loc_name }}</h3>
                             <p class="stall-address">{{ listing.stall.city }} {{ listing.stall.district }} · {{ listing.stall.road }} {{ listing.stall.address_detail }}</p>
 
                             <ul class="facility-list" aria-label="攤位設備">
-                                <li class="verified">✓ 場地認證通過</li>
+                                <li class="verified">✓ 出租資格已審核</li>
                                 {% if listing.facilities %}
                                     {% for facility in listing.facilities[:3] %}
                                         <li>{{ facility }}</li>
@@ -864,7 +864,7 @@
                             </ul>
 
                             <div class="availability">
-                                <p class="availability-label">NEXT · {{ listing.next_date|date("Y/m/d") }} 起，共 {{ listing.available_days }} 個開放日</p>
+                                <p class="availability-label">最近可租 · {{ listing.next_date|date("Y/m/d") }} 起，共 {{ listing.available_days }} 個開放日</p>
                                 <div class="slot-list">
                                     {% for slot in listing.preview_slots %}
                                         <span class="slot">{{ slot.date|date("m/d") }} · {{ slot.time }}:00–{{ slot.time + slot.duration_hours }}:00</span>
@@ -888,8 +888,7 @@
             {% else %}
                 <div class="empty-state">
                     <div>
-                        <h3>目前沒有尚未預約的近期時段</h3>
-                        <p>場地主可以先刊登攤位與租金；新的可租時段出現後，會直接顯示在這裡。</p>
+                        <h3>目前沒有可預約時段</h3>
                     </div>
                     <a href="{{ provider_url }}" class="button"{% if not current_user %} data-auth-role="Landlord" data-auth-next=""{% endif %}>刊登第一個攤位</a>
                 </div>
@@ -898,27 +897,27 @@
 
         <section class="market-purpose" aria-labelledby="purpose-title">
             <div class="purpose-copy">
-                <p class="section-kicker">Why SPACIS</p>
-                <h2 id="purpose-title">讓每一次出攤，都從清楚開始。</h2>
-                <p>SPACIS 把分散的市集空間變成可以比較、可以信任的供應資訊，並透過雙向評價累積可靠的合作紀錄。</p>
+                <p class="section-kicker">合作資訊</p>
+                <h2 id="purpose-title">清楚比較，安心預約。</h2>
+                <p>查看地點、設備、費用、時段與合作評價。</p>
             </div>
             <div class="behavior-grid" aria-label="可靠合作行為">
                 <article class="behavior-card">
-                    <p class="behavior-label">可靠的租客</p>
-                    <h3>準時、如實、尊重場地</h3>
-                    <p>依約使用空間與設備，遵守現場規則；若計畫改變，及早通知場地主，讓下一位出攤者也能順利安排。</p>
+                    <p class="behavior-label">攤商</p>
+                    <h3>依約使用場地</h3>
+                    <p>遵守現場規則；行程變更時，請及早通知場地方。</p>
                 </article>
                 <article class="behavior-card">
-                    <p class="behavior-label">可靠的場地主</p>
-                    <h3>資訊透明，回應一致</h3>
-                    <p>持續更新地點、設備、費用與空檔，並清楚說明使用限制。真實且一致的資訊，是長期合作的基礎。</p>
+                    <p class="behavior-label">場地方</p>
+                    <h3>維持資訊正確</h3>
+                    <p>更新設備、費用、時段與使用限制。</p>
                 </article>
             </div>
         </section>
 
         <footer class="site-footer">
             <span>SPACIS / 攤位媒合與空間預約系統</span>
-            <span>先看供應，再開始預約。</span>
+            <span>找攤位・刊登攤位</span>
         </footer>
     </main>
 

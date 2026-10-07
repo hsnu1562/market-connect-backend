@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SPACIS | 攤位發佈成功</title>
+    <title>SPACIS | 時段已儲存</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
     <style>
@@ -127,17 +127,15 @@
 {% include '_member_nav.html' %}
 <main class="success-page">
 <div class="success-card">
-    <span class="success-icon">🎉</span>
-    <h1>恭喜！新攤位上架成功</h1>
-    <p>您的市集攤位資訊、時段以及定價已經全部發佈完成，租客們現在隨時可以預約囉！</p>
+    <h1>出租時段已儲存</h1>
     
     <div class="btn-group">
     <a href="/landlord/history/{{ user.id }}/" class="btn btn-primary">
-        📊 查看我剛上架的攤位
+        查看攤位管理
     </a>
     
     <a href="/landlord/hub/{{ user.id }}/" class="btn btn-secondary">
-        🏠 返回房東首頁
+        回到場地管理
     </a>
 </div>
 </div>

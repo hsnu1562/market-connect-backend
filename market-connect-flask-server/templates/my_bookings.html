@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>我的預約紀錄 - SPACIS</title>
+    <title>SPACIS | 我的預約</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,900;1,400&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='member-nav.css') }}">
     <style>
@@ -51,39 +51,45 @@
     {% include '_member_nav.html' %}
 
     <div class="container">
-        <h2 class="page-title">歷史預約與訂單</h2>
+        <h2 class="page-title">我的預約</h2>
 
         {% for group in booking_groups %}
         <div class="booking-card">
             <div>
                 <div class="stall-title">
-                    🏪 {{ group.stall.loc_name }}
-                    {% if group.payment_status == 'Paid' %}
-                        <span class="badge paid">已結清</span>
+                    {{ group.stall.loc_name }}
+                    {% if group.reservation_status == 'CONFIRMED' and group.payment_status == 'VERIFIED' %}
+                        <span class="badge paid">付款已驗證・預約成立</span>
+                    {% elif group.reservation_status == 'CONFIRMED' %}
+                        <span class="badge unpaid">歷史預約・付款未經金流驗證</span>
+                    {% elif group.reservation_status == 'HELD' %}
+                        <span class="badge unpaid">暫時保留・尚未付款</span>
+                    {% elif group.reservation_status == 'EXPIRED' %}
+                        <span class="badge unpaid">保留已到期</span>
                     {% else %}
-                        <span class="badge unpaid">線上付款未完成</span>
+                        <span class="badge unpaid">預約已取消</span>
                     {% endif %}
                 </div>
                 
                 <div class="details-grid">
-                    <div><span class="label">位址</span>{{ group.stall.city }}{{ group.stall.district }}{{ group.stall.road }}</div>
+                    <div><span class="label">地址</span>{{ group.stall.city }}{{ group.stall.district }}{{ group.stall.road }}</div>
                     <div><span class="label">總金額</span>${{ group.total_price }}</div>
                 </div>
 
-                <div><span class="label">檔期時段</span>
+                <div><span class="label">預約時段</span>
                     {% for slot in group.slots %}
-                        <span class="slot-pill">{{ slot.date|date("M d, Y") }} | {{ slot.time }}:00–{{ slot.time + slot.duration_hours }}:00</span>
+                        <span class="slot-pill">{{ slot.date|date("Y/m/d") }} | {{ slot.time }}:00–{{ slot.time + slot.duration_hours }}:00</span>
                     {% endfor %}
                 </div>
                 
-                {% if group.payment_status == 'Paid' %}
+                {% if group.reservation_status == 'CONFIRMED' %}
                     {% if group.is_reviewed %}
-                        <div style="margin-top:15px; color: var(--success); font-weight:900;">✅ 已完成評價</div>
+                        <div style="margin-top:15px; color: var(--success); font-weight:900;">已完成評價</div>
                     {% else %}
-                        <button class="review-btn" onclick="openReviewModal('{{ group.booking_id }}', '{{ group.stall.loc_name|escapejs }}')">⭐ 評價攤主</button>
+                        <button class="review-btn" onclick="openReviewModal('{{ group.booking_id }}', '{{ group.stall.loc_name|escapejs }}')">評價場地方</button>
                     {% endif %}
-                {% else %}
-                    <a class="review-btn" href="/payment/{{ group.qr_code }}/">繼續線上付款</a>
+                {% elif group.reservation_status == 'HELD' %}
+                    <a class="review-btn" href="/payment/{{ group.qr_code }}/">查看保留與付款狀態</a>
                 {% endif %}
             </div>
 
@@ -92,25 +98,27 @@
                 <div class="qrcode-str">{{ group.qr_code }}</div>
             </div>
         </div>
+        {% else %}
+            <p>尚無預約紀錄。</p>
         {% endfor %}
     </div>
 
 <!-- 評價 Modal -->
 <div id="reviewModal" style="display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 2000;">
     <div style="background: white; padding: 40px; border: 3px solid #161616; width: 400px;">
-        <h3 style="font-family: 'Playfair Display', serif;">給予攤主評價</h3>
+        <h3 style="font-family: 'Playfair Display', serif;">評價場地方</h3>
         <form action="/submit_review/" method="POST">
             <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="booking_id" id="modal-booking-id">
             <label style="display:block; margin-bottom:5px;">評分：</label>
             <select name="rating" style="width:100%; padding: 10px; margin-bottom: 15px; border: 2px solid #161616;">
-                <option value="5">⭐⭐⭐⭐⭐ 5星 - 非常完美</option>
-                <option value="4">⭐⭐⭐⭐ 4星 - 體驗很好</option>
-                <option value="3">⭐⭐⭐ 3星 - 普通尚可</option>
-                <option value="2">⭐⭐ 2星 - 有待改善</option>
-                <option value="1">⭐ 1星 - 極差</option>
+                <option value="5">⭐⭐⭐⭐⭐ 5 星－非常滿意</option>
+                <option value="4">⭐⭐⭐⭐ 4 星－滿意</option>
+                <option value="3">⭐⭐⭐ 3 星－普通</option>
+                <option value="2">⭐⭐ 2 星－不滿意</option>
+                <option value="1">⭐ 1 星－非常不滿意</option>
             </select>
-            <label style="display:block; margin-bottom:5px;">評語：</label>
+            <label style="display:block; margin-bottom:5px;">評語（選填）</label>
             <textarea name="comment" style="width:100%; padding:10px; margin-bottom:20px; border: 2px solid #161616;"></textarea>
             <button type="submit" class="review-btn">送出評價</button>
             <button type="button" onclick="closeReviewModal()" style="background:transparent; border:none; cursor:pointer;">取消</button>

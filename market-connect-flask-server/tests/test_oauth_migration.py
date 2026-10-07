@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from flask_migrate import stamp, upgrade
+import pytest
+from flask_migrate import downgrade, stamp, upgrade
 from sqlalchemy import inspect, text
 
 from app import create_app
@@ -37,6 +38,7 @@ def test_initial_migration_upgrades_legacy_user_schema(tmp_path):
                         password_hash VARCHAR(255) NOT NULL,
                         first_name VARCHAR(50) NOT NULL,
                         last_name VARCHAR(50) NOT NULL,
+                        birth_date DATE,
                         phone_number VARCHAR(20),
                         role VARCHAR(20) NOT NULL,
                         reputation_score FLOAT NOT NULL
@@ -101,10 +103,10 @@ def test_initial_migration_upgrades_legacy_user_schema(tmp_path):
                     """
                     INSERT INTO "user" (
                         id, username, password_hash, first_name, last_name,
-                        phone_number, role, reputation_score
+                        birth_date, phone_number, role, reputation_score
                     ) VALUES (
                         1, 'legacy_tenant', 'legacy-hash', 'Legacy', 'Tenant',
-                        '0912345678', 'Tenant', 5.0
+                        '1988-06-15', '0912345678', 'Tenant', 5.0
                     )
                     """
                 )
@@ -118,6 +120,8 @@ def test_initial_migration_upgrades_legacy_user_schema(tmp_path):
             "user_role",
             "stall_certification",
             "stall_certification_document",
+            "vendor_profile",
+            "booking_requirement",
         }.issubset(
             inspector.get_table_names()
         )
@@ -132,6 +136,14 @@ def test_initial_migration_upgrades_legacy_user_schema(tmp_path):
             "birth_date",
             "is_admin",
         }.issubset(user_columns)
+        assert user_columns["birth_date"]["nullable"] is True
+        preserved_birth_date = db.session.execute(
+            text('SELECT birth_date FROM "user" WHERE id = 1')
+        ).scalar_one()
+        assert str(preserved_birth_date) == "1988-06-15"
+        assert db.session.execute(
+            text("SELECT COUNT(*) FROM vendor_profile")
+        ).scalar_one() == 0
         membership = db.session.execute(
             text("SELECT user_id, role FROM user_role WHERE user_id = 1")
         ).one()
@@ -174,7 +186,7 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
         upgrade(directory=str(MIGRATIONS_DIR))
 
         revision = db.session.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-        assert revision == "20261004_09"
+        assert revision == "20261004_11"
         inspector = inspect(db.engine)
         stall_columns = {column["name"] for column in inspector.get_columns("stall")}
         slot_columns = {column["name"] for column in inspector.get_columns("slot")}
@@ -187,6 +199,190 @@ def test_initial_migration_stamps_fresh_create_all_schema(tmp_path):
         assert "stall_certification" in inspector.get_table_names()
         assert "stall_certification_document" in inspector.get_table_names()
         assert "stall_photo" in inspector.get_table_names()
+        assert "payment_transaction" in inspector.get_table_names()
+        assert "vendor_profile" in inspector.get_table_names()
+        assert "booking_requirement" in inspector.get_table_names()
+        booking_columns = {column["name"] for column in inspector.get_columns("booking")}
+        assert {
+            "payment_id",
+            "reservation_status",
+            "hold_expires_at",
+            "confirmed_at",
+            "requirements_id",
+        }.issubset(booking_columns)
+
+
+def test_booking_migration_preserves_legacy_paid_as_unverified_history(tmp_path):
+    app = _migration_app(tmp_path / "legacy-booking.db")
+
+    with app.app_context():
+        with db.engine.begin() as connection:
+            connection.execute(text('CREATE TABLE "user" (id INTEGER PRIMARY KEY)'))
+            connection.execute(text("CREATE TABLE slot (id INTEGER PRIMARY KEY)"))
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE booking (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        slot_id INTEGER NOT NULL UNIQUE,
+                        qr_code VARCHAR(100) NOT NULL,
+                        payment_status VARCHAR(20) NOT NULL,
+                        payment_method VARCHAR(20) NOT NULL,
+                        created_at DATETIME NOT NULL,
+                        FOREIGN KEY(user_id) REFERENCES "user" (id),
+                        FOREIGN KEY(slot_id) REFERENCES slot (id)
+                    )
+                    """
+                )
+            )
+            connection.execute(text('INSERT INTO "user" (id) VALUES (1)'))
+            connection.execute(text("INSERT INTO slot (id) VALUES (1)"))
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO booking (
+                        id, user_id, slot_id, qr_code, payment_status,
+                        payment_method, created_at
+                    ) VALUES (
+                        1, 1, 1, 'LEGACY01', 'Paid', 'Credit Card',
+                        '2026-10-02 10:00:00'
+                    )
+                    """
+                )
+            )
+
+        stamp(directory=str(MIGRATIONS_DIR), revision="20261004_09")
+        upgrade(directory=str(MIGRATIONS_DIR))
+
+        migrated = db.session.execute(
+            text(
+                """
+                SELECT reservation_status, payment_id, requirements_id,
+                       payment_status, payment_method, confirmed_at
+                FROM booking WHERE id = 1
+                """
+            )
+        ).one()
+        assert migrated == (
+            "CONFIRMED",
+            None,
+            None,
+            "Paid",
+            "Credit Card",
+            None,
+        )
+        assert db.session.execute(
+            text("SELECT COUNT(*) FROM payment_transaction")
+        ).scalar_one() == 0
+
+        indexes = {index["name"]: index for index in inspect(db.engine).get_indexes("booking")}
+        assert indexes["uq_booking_active_slot"]["unique"] == 1
+
+        booking_columns = {
+            column["name"]: column
+            for column in inspect(db.engine).get_columns("booking")
+        }
+        assert booking_columns["payment_status"]["default"] == "'NotApplicable'"
+        assert booking_columns["payment_method"]["default"] == "''"
+
+        downgrade(directory=str(MIGRATIONS_DIR), revision="20261004_09")
+        downgraded_columns = {
+            column["name"]: column
+            for column in inspect(db.engine).get_columns("booking")
+        }
+        assert downgraded_columns["payment_status"]["default"] is None
+        assert downgraded_columns["payment_method"]["default"] is None
+        preserved = db.session.execute(
+            text(
+                "SELECT payment_status, payment_method FROM booking WHERE id = 1"
+            )
+        ).one()
+        assert preserved == ("Paid", "Credit Card")
+
+
+def test_booking_migration_refuses_unsafe_downgrade_before_schema_changes(
+    tmp_path,
+):
+    app = _migration_app(tmp_path / "unsafe-booking-downgrade.db")
+
+    with app.app_context():
+        with db.engine.begin() as connection:
+            connection.execute(text('CREATE TABLE "user" (id INTEGER PRIMARY KEY)'))
+            connection.execute(text("CREATE TABLE slot (id INTEGER PRIMARY KEY)"))
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE booking (
+                        id INTEGER NOT NULL PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        slot_id INTEGER NOT NULL UNIQUE,
+                        qr_code VARCHAR(100) NOT NULL,
+                        payment_status VARCHAR(20) NOT NULL,
+                        payment_method VARCHAR(20) NOT NULL,
+                        created_at DATETIME NOT NULL,
+                        FOREIGN KEY(user_id) REFERENCES "user" (id),
+                        FOREIGN KEY(slot_id) REFERENCES slot (id)
+                    )
+                    """
+                )
+            )
+            connection.execute(text('INSERT INTO "user" (id) VALUES (1)'))
+            connection.execute(text("INSERT INTO slot (id) VALUES (1)"))
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO booking (
+                        id, user_id, slot_id, qr_code, payment_status,
+                        payment_method, created_at
+                    ) VALUES (
+                        1, 1, 1, 'ACTIVE', 'Paid', 'Credit Card',
+                        '2026-10-02 10:00:00'
+                    )
+                    """
+                )
+            )
+
+        stamp(directory=str(MIGRATIONS_DIR), revision="20261004_09")
+        upgrade(directory=str(MIGRATIONS_DIR))
+        db.session.execute(
+            text(
+                """
+                INSERT INTO booking (
+                    id, user_id, slot_id, qr_code, reservation_status,
+                    created_at
+                ) VALUES (
+                    2, 1, 1, 'HISTORY', 'EXPIRED', '2026-10-02 11:00:00'
+                )
+                """
+            )
+        )
+        db.session.commit()
+        downgrade(directory=str(MIGRATIONS_DIR), revision="20261004_10")
+
+        before_columns = {
+            column["name"] for column in inspect(db.engine).get_columns("booking")
+        }
+        before_indexes = {
+            index["name"] for index in inspect(db.engine).get_indexes("booking")
+        }
+
+        with pytest.raises(SystemExit) as downgrade_error:
+            downgrade(directory=str(MIGRATIONS_DIR), revision="20261004_09")
+        assert downgrade_error.value.code == 1
+
+        after_columns = {
+            column["name"] for column in inspect(db.engine).get_columns("booking")
+        }
+        after_indexes = {
+            index["name"] for index in inspect(db.engine).get_indexes("booking")
+        }
+        revision = db.session.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+        assert after_columns == before_columns
+        assert after_indexes == before_indexes
+        assert revision == "20261004_10"
 
 
 def test_link_only_certification_is_rejected_cleared_and_removed(tmp_path):

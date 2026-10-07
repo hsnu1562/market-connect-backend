@@ -123,11 +123,12 @@ def test_google_callback_creates_identity_role_and_permanent_session(app, client
     response = client.get("/auth/google/callback")
 
     assert response.status_code == 302
-    assert response.headers["Location"].startswith("/account/profile")
+    assert response.headers["Location"] == "/tenant/hub/1/"
     with app.app_context():
         user = User.query.one()
         identity = AuthIdentity.query.one()
         assert user.password_hash is None
+        assert user.birth_date is None
         assert user.profile_completed_at is None
         assert user.needs_profile_completion is True
         assert user.has_role("Tenant")
@@ -143,7 +144,7 @@ def test_google_callback_creates_identity_role_and_permanent_session(app, client
         assert "_oauth_next_url" not in flask_session
 
 
-def test_first_google_login_collects_profile_then_returns_to_intended_page(
+def test_first_google_login_can_browse_then_optionally_update_personal_profile(
     app, client, monkeypatch
 ):
     monkeypatch.setattr(
@@ -154,15 +155,17 @@ def test_first_google_login_collects_profile_then_returns_to_intended_page(
     _set_oauth_context(client, "Tenant", "/stalls/")
 
     callback = client.get("/auth/google/callback")
-    profile_url = callback.headers["Location"]
+    assert callback.headers["Location"] == "/stalls/"
+    assert client.get("/stalls/").status_code == 200
+
+    profile_url = "/account/profile/?role=Tenant&next=/stalls/"
     profile_page = client.get(profile_url)
 
     assert profile_page.status_code == 200
     assert b"vendor@example.com" in profile_page.data
-    assert "不會發送 OTP".encode() in profile_page.data
     assert b'name="nickname"' in profile_page.data
-    assert b'name="birth_date"' in profile_page.data
     assert b'name="phone_number"' in profile_page.data
+    assert b'name="birth_date"' not in profile_page.data
 
     with client.session_transaction() as flask_session:
         csrf_token = flask_session["_csrf_token"]
@@ -173,10 +176,9 @@ def test_first_google_login_collects_profile_then_returns_to_intended_page(
             "role": "Tenant",
             "next": "/stalls/",
             "nickname": "夜市小明",
-            "birth_date": "1998-07-15",
             "first_name": "小明",
             "last_name": "陳",
-            "phone_number": "0912 345 678",
+            "phone_number": "",
         },
         follow_redirects=False,
     )
@@ -187,10 +189,10 @@ def test_first_google_login_collects_profile_then_returns_to_intended_page(
         user = User.query.one()
         user_id = user.id
         assert user.nickname == "夜市小明"
-        assert user.birth_date.isoformat() == "1998-07-15"
+        assert user.birth_date is None
         assert user.first_name == "小明"
         assert user.last_name == "陳"
-        assert user.phone_number == "0912 345 678"
+        assert user.phone_number is None
         assert user.profile_completed_at is not None
         assert user.needs_profile_completion is False
 
@@ -208,7 +210,8 @@ def test_profile_rejects_invalid_phone(app, client, monkeypatch):
         lambda: {"userinfo": _google_userinfo()},
     )
     _set_oauth_context(client, "Landlord")
-    profile_url = client.get("/auth/google/callback").headers["Location"]
+    client.get("/auth/google/callback")
+    profile_url = "/account/profile/?role=Landlord"
     client.get(profile_url)
     with client.session_transaction() as flask_session:
         csrf_token = flask_session["_csrf_token"]
@@ -219,7 +222,6 @@ def test_profile_rejects_invalid_phone(app, client, monkeypatch):
             "_csrf_token": csrf_token,
             "role": "Landlord",
             "nickname": "Market Vendor",
-            "birth_date": "1990-01-01",
             "first_name": "Market",
             "last_name": "Vendor",
             "phone_number": "not-a-phone",
@@ -227,12 +229,12 @@ def test_profile_rejects_invalid_phone(app, client, monkeypatch):
     )
 
     assert response.status_code == 200
-    assert "請輸入有效的聯絡電話".encode() in response.data
+    assert "聯絡電話格式不正確".encode() in response.data
     with app.app_context():
         assert User.query.one().profile_completed_at is None
 
 
-def test_old_completion_timestamp_cannot_bypass_required_profile_fields(
+def test_personal_profile_completion_state_does_not_block_navigation(
     app, client, monkeypatch
 ):
     monkeypatch.setattr(
@@ -244,19 +246,15 @@ def test_old_completion_timestamp_cannot_bypass_required_profile_fields(
     client.get("/auth/google/callback")
     with app.app_context():
         user = User.query.one()
-        user.profile_completed_at = user.created_at
-        user.phone_number = "0912345678"
-        db.session.commit()
         user_id = user.id
         assert user.needs_profile_completion is True
 
     response = client.get(f"/tenant/hub/{user_id}/")
 
-    assert response.status_code == 302
-    assert response.headers["Location"].startswith("/account/profile")
+    assert response.status_code == 200
 
 
-def test_incomplete_google_profile_cannot_open_protected_tools(app, client, monkeypatch):
+def test_incomplete_google_profile_can_open_role_tools(app, client, monkeypatch):
     monkeypatch.setattr(
         oauth.google,
         "authorize_access_token",
@@ -269,8 +267,7 @@ def test_incomplete_google_profile_cannot_open_protected_tools(app, client, monk
 
     response = client.get(f"/tenant/hub/{user_id}/")
 
-    assert response.status_code == 302
-    assert response.headers["Location"].startswith("/account/profile")
+    assert response.status_code == 200
 
 
 def test_existing_google_identity_gains_second_role_without_duplicate_user(
